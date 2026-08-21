@@ -8,7 +8,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon.svg">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=2">
 </head>
 <body>
 
@@ -144,6 +144,31 @@
 
   <!-- ===== BUDGET SETUP ===== -->
   <section id="view-budget" class="view hidden">
+    <div class="card budget-summary-card">
+      <div class="card-head">
+        <h2>סך הכל — מצב התכנון</h2>
+      </div>
+      <div class="summary-row">
+        <div class="summary-box">
+          <span class="label">הכנסה</span>
+          <span class="value" id="budgetSumIncome">0 ₪</span>
+        </div>
+        <div class="summary-box">
+          <span class="label">סך מתוכנן</span>
+          <span class="value" id="budgetSumPlanned">0 ₪</span>
+        </div>
+        <div class="summary-box highlight">
+          <span class="label">יתרה מתוכננת</span>
+          <span class="value" id="budgetSumBalance">0 ₪</span>
+        </div>
+      </div>
+      <div class="progress-outer">
+        <div class="progress-inner" id="budgetAllocBar"></div>
+      </div>
+      <p id="budgetSumNote" class="pace-note"></p>
+      <div class="budget-breakdown" id="budgetBreakdown"></div>
+    </div>
+
     <div class="card">
       <h2>הכנסה חודשית</h2>
       <label>סך הכנסה קבועה
@@ -244,6 +269,6 @@
 </nav>
 
 <script src="vendor/xlsx.full.min.js"></script>
-<script src="app.js"></script>
+<script src="app.js?v=2"></script>
 </body>
 </html>

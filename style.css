@@ -32,6 +32,10 @@
 
 * { box-sizing: border-box; }
 
+html {
+  scroll-behavior: smooth;
+}
+
 html, body {
   margin: 0;
   padding: 0;
@@ -44,6 +48,15 @@ html, body {
 body {
   min-height: 100vh;
   padding-bottom: calc(70px + env(safe-area-inset-bottom));
+  transition: background-color .2s;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--primary) 30%, transparent);
+}
+
+a, button, input, select {
+  transition: background-color .15s, border-color .15s, color .15s, box-shadow .15s, opacity .15s, transform .1s;
 }
 
 .topbar {
@@ -54,14 +67,16 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: calc(12px + env(safe-area-inset-top)) 16px 12px;
-  background: var(--primary);
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
   color: white;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.12);
 }
 
 .topbar h1 {
   font-size: 1.1rem;
   margin: 0;
   font-weight: 700;
+  letter-spacing: .2px;
 }
 
 .icon-btn {
@@ -71,7 +86,10 @@ body {
   cursor: pointer;
   color: white;
   padding: 4px 8px;
+  border-radius: 8px;
 }
+.icon-btn:hover { background: rgba(255,255,255,0.15); }
+.icon-btn:active { transform: scale(0.92); }
 
 #app {
   max-width: 560px;
@@ -81,6 +99,14 @@ body {
 
 .view.hidden { display: none; }
 
+.view {
+  animation: fadeIn .25s ease;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 .card {
   background: var(--card-bg);
   border: 1px solid var(--border);
@@ -88,6 +114,60 @@ body {
   padding: 16px;
   margin-bottom: 14px;
   box-shadow: var(--shadow);
+  transition: box-shadow .2s, transform .2s, border-color .2s;
+}
+
+/* ===== Responsive: tablet & desktop ===== */
+@media (min-width: 720px) {
+  #app { max-width: 680px; padding: 20px; }
+  .card { padding: 20px; border-radius: 16px; }
+  .topbar h1 { font-size: 1.25rem; }
+  .topbar { padding: 18px 28px; }
+}
+
+@media (min-width: 1000px) {
+  body { padding-bottom: 0; }
+  #app {
+    max-width: 880px;
+    margin-inline-end: 96px;
+    margin-inline-start: auto;
+    padding: 28px 28px 60px;
+  }
+  .topbar { padding: 18px calc(96px + 28px) 18px 28px; }
+
+  .tabbar {
+    top: 0;
+    bottom: 0;
+    inset-inline-end: 0;
+    inset-inline-start: auto;
+    left: auto;
+    width: 88px;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 6px;
+    padding: 22px 8px;
+    border-top: none;
+    border-inline-start: 1px solid var(--border);
+    box-shadow: -2px 0 10px rgba(0,0,0,0.04);
+  }
+  .tab {
+    border-radius: 12px;
+    padding: 12px 4px;
+    font-size: 0.72rem;
+  }
+  .tab:hover { background: var(--bg); }
+  .tab.active { background: color-mix(in srgb, var(--primary) 12%, transparent); }
+  .tab-icon { font-size: 1.35rem; }
+
+  /* dashboard & business-breakdown cards flow in two columns on desktop */
+  #view-dashboard, #view-business { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-content: start; }
+  #view-dashboard .card, #view-business .card { margin-bottom: 0; }
+  #view-dashboard .summary-card,
+  #view-dashboard > .card:nth-child(2) { grid-column: 1 / -1; }
+}
+
+@media (hover: hover) {
+  .card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.09), 0 2px 6px rgba(0,0,0,0.05); }
 }
 
 .card h2 {
@@ -219,6 +299,11 @@ input, select {
   color: var(--text);
   font-family: inherit;
 }
+input:hover, select:hover { border-color: color-mix(in srgb, var(--primary) 40%, var(--border)); }
+input:focus-visible, select:focus-visible, button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
 
 button {
   font-family: inherit;
@@ -235,6 +320,9 @@ button {
   font-size: 1rem;
   font-weight: 700;
 }
+.btn-primary:hover { background: var(--primary-dark); }
+.btn-primary:active { transform: scale(0.98); }
+
 .btn-secondary {
   width: 100%;
   background: var(--bg);
@@ -245,6 +333,8 @@ button {
   font-size: 0.95rem;
   margin-bottom: 10px;
 }
+.btn-secondary:hover { border-color: var(--primary); color: var(--primary); }
+
 .btn-danger {
   width: 100%;
   background: none;
@@ -254,6 +344,8 @@ button {
   border-radius: 10px;
   font-size: 0.95rem;
 }
+.btn-danger:hover { background: color-mix(in srgb, var(--danger) 10%, transparent); }
+
 .btn-small {
   background: var(--primary);
   color: white;
@@ -263,6 +355,7 @@ button {
   font-size: 0.8rem;
   white-space: nowrap;
 }
+.btn-small:hover { background: var(--primary-dark); }
 
 .file-label {
   display: block;
@@ -384,9 +477,17 @@ button {
   padding: 8px 0 6px;
   font-size: 0.68rem;
   color: var(--muted);
+  cursor: pointer;
+  border-radius: 10px;
 }
-.tab.active { color: var(--primary); }
+.tab.active { color: var(--primary); font-weight: 600; }
 .tab-icon { font-size: 1.2rem; }
+
+@media (hover: hover) {
+  .tab:hover { color: var(--primary); background: var(--bg); }
+  .expense-del:hover, .remove-btn:hover { color: var(--danger); }
+  .file-label:hover { border-color: var(--primary); color: var(--primary); }
+}
 
 .empty-note {
   color: var(--muted);
@@ -480,4 +581,23 @@ button {
 .import-badge.confirmed {
   background: color-mix(in srgb, var(--primary) 16%, transparent);
   color: var(--primary);
+}
+
+.budget-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+}
+.budget-breakdown-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.budget-breakdown-row span:last-child {
+  color: var(--text);
+  font-weight: 600;
 }

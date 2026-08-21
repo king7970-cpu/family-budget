@@ -841,6 +841,45 @@ function renderBudgetView() {
   renderEditList('fixedEditList', data.fixed, false);
   renderEditList('varEditList', data.variable, false);
   renderFundEditList();
+  renderBudgetSummary();
+}
+
+function renderBudgetSummary() {
+  const income = data.income;
+  const fixed = fixedTotal();
+  const variable = variableTotal();
+  const funds = fundsMonthlyTotal();
+  const planned = fixed + variable + funds;
+  const balance = income - planned;
+
+  document.getElementById('budgetSumIncome').textContent = fmt(income);
+  document.getElementById('budgetSumPlanned').textContent = fmt(planned);
+  const balEl = document.getElementById('budgetSumBalance');
+  balEl.textContent = fmt(balance);
+  balEl.style.color = balance < 0 ? 'var(--danger)' : 'var(--good)';
+
+  const pct = income > 0 ? (planned / income) * 100 : 0;
+  const bar = document.getElementById('budgetAllocBar');
+  bar.style.width = Math.min(100, pct) + '%';
+  bar.className = 'progress-inner' + (pct > 100 ? ' over' : pct > 90 ? ' warn' : '');
+
+  const note = document.getElementById('budgetSumNote');
+  if (income > 0) {
+    note.textContent = balance < 0
+      ? `התכנון חורג מההכנסה ב-${fmtNum(Math.abs(balance))} ₪ — כדאי לצמצם קטגוריה כלשהי.`
+      : `${fmtNum(pct)}% מההכנסה מתוכננים. נשארים ${fmtNum(balance)} ₪ שלא הוקצו.`;
+    note.style.color = balance < 0 ? 'var(--danger)' : '';
+  } else {
+    note.textContent = 'הזן הכנסה חודשית כדי לראות את התמונה המלאה.';
+    note.style.color = '';
+  }
+
+  const breakdown = document.getElementById('budgetBreakdown');
+  breakdown.innerHTML = `
+    <div class="budget-breakdown-row"><span>הוצאות קבועות</span><span>${fmt(fixed)}</span></div>
+    <div class="budget-breakdown-row"><span>קטגוריות משתנות (יעד)</span><span>${fmt(variable)}</span></div>
+    <div class="budget-breakdown-row"><span>הפרשות לקרנות שנתיות</span><span>${fmt(funds)}</span></div>
+  `;
 }
 
 function renderEditList(containerId, arr, isFund) {
