@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f766e">
+<title>תקציב המשפחה</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <h1 id="monthTitle">תקציב המשפחה</h1>
+  <button id="menuBtn" class="icon-btn" aria-label="תפריט">⚙️</button>
+</header>
+
+<main id="app">
+
+  <!-- ===== DASHBOARD ===== -->
+  <section id="view-dashboard" class="view">
+    <div class="card summary-card">
+      <div class="summary-row">
+        <div class="summary-box">
+          <span class="label">הכנסה חודשית</span>
+          <span class="value" id="sumIncome">0 ₪</span>
+        </div>
+        <div class="summary-box">
+          <span class="label">קבוע + הפרשות</span>
+          <span class="value" id="sumFixed">0 ₪</span>
+        </div>
+        <div class="summary-box highlight">
+          <span class="label">תקציב פנוי (משתנות)</span>
+          <span class="value" id="sumAvailable">0 ₪</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>מצב החודש</h2>
+        <span id="dayProgressLabel" class="muted"></span>
+      </div>
+      <div class="big-numbers">
+        <div>
+          <span class="big-value" id="spentSoFar">0</span>
+          <span class="small-label">הוצאתי עד היום</span>
+        </div>
+        <div>
+          <span class="big-value" id="remainingNow">0</span>
+          <span class="small-label">נשאר לי</span>
+        </div>
+        <div>
+          <span class="big-value" id="projectedEnd">0</span>
+          <span class="small-label">תחזית לסוף החודש</span>
+        </div>
+      </div>
+      <div class="progress-outer">
+        <div class="progress-inner" id="monthProgressBar"></div>
+      </div>
+      <p id="paceNote" class="pace-note"></p>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>קטגוריות משתנות</h2>
+      </div>
+      <div id="categoryList" class="category-list"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>קרנות שנתיות</h2>
+        <span class="muted">חיסכון חודשי להוצאות פעם-בשנה</span>
+      </div>
+      <div id="fundsList" class="category-list"></div>
+    </div>
+  </section>
+
+  <!-- ===== ADD EXPENSE ===== -->
+  <section id="view-add" class="view hidden">
+    <div class="card">
+      <h2>הוספת הוצאה</h2>
+      <form id="expenseForm">
+        <label>תאריך
+          <input type="date" id="expDate" required>
+        </label>
+        <label>קטגוריה
+          <select id="expCategory" required></select>
+        </label>
+        <label>עסק (בית עסק)
+          <input type="text" id="expBusiness" list="businessList" placeholder="לדוגמה: סופר יינות ביתן">
+          <datalist id="businessList"></datalist>
+        </label>
+        <label>סכום (₪)
+          <input type="number" id="expAmount" step="0.01" min="0" required inputmode="decimal">
+        </label>
+        <label>הערה (אופציונלי)
+          <input type="text" id="expNote" placeholder="הערה חופשית">
+        </label>
+        <button type="submit" class="btn-primary">שמור הוצאה</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>ייבוא מקובץ הוצאות</h2>
+      </div>
+      <p class="muted">קובץ Excel/CSV מכרטיס האשראי או הבנק — המערכת תזהה תאריך, עסק וסכום, ותציע קטגוריה לכל שורה לפי מה שלמדה מהיסטוריית הסיווגים שלך.</p>
+      <label class="file-label">
+        בחר קובץ (xlsx / xls / csv)
+        <input type="file" id="importExpFile" accept=".csv,.xlsx,.xls">
+      </label>
+      <div id="importMapArea" class="hidden">
+        <div class="import-map-grid">
+          <label class="muted">עמודת תאריך
+            <select id="mapDate"></select>
+          </label>
+          <label class="muted">עמודת עסק/תיאור
+            <select id="mapDesc"></select>
+          </label>
+          <label class="muted">עמודת סכום
+            <select id="mapAmount"></select>
+          </label>
+        </div>
+        <button class="btn-secondary" id="buildPreviewBtn" type="button">הצג תצוגה מקדימה</button>
+      </div>
+      <div id="importPreviewArea" class="hidden">
+        <div id="importPreviewList" class="import-preview-list"></div>
+        <button class="btn-primary" id="confirmImportBtn" type="button">ייבא את כל השורות</button>
+        <button class="btn-secondary" id="cancelImportBtn" type="button">ביטול</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>הוצאות החודש</h2>
+      </div>
+      <div id="expenseLog" class="expense-log"></div>
+    </div>
+  </section>
+
+  <!-- ===== BUDGET SETUP ===== -->
+  <section id="view-budget" class="view hidden">
+    <div class="card">
+      <h2>הכנסה חודשית</h2>
+      <label>סך הכנסה קבועה
+        <input type="number" id="incomeInput" step="1" min="0">
+      </label>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>הוצאות קבועות</h2>
+        <button class="btn-small" id="addFixedBtn">+ הוסף</button>
+      </div>
+      <div id="fixedEditList" class="edit-list"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>קטגוריות משתנות (יעד חודשי)</h2>
+        <button class="btn-small" id="addVarBtn">+ הוסף</button>
+      </div>
+      <div id="varEditList" class="edit-list"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>קרנות שנתיות (הוצאות פעם בשנה)</h2>
+        <button class="btn-small" id="addFundBtn">+ הוסף</button>
+      </div>
+      <div id="fundEditList" class="edit-list"></div>
+    </div>
+  </section>
+
+  <!-- ===== ANNUAL FUNDS DETAIL ===== -->
+  <section id="view-annual" class="view hidden">
+    <div class="card">
+      <h2>קרנות שנתיות — פירוט</h2>
+      <p class="muted">לכל קרן מחושבת הפרשה חודשית = יעד שנתי ÷ 12. הכסף נצבר כל חודש, וכשמגיע החודש שבו ההוצאה חלה — אתה מושך ממנה.</p>
+    </div>
+    <div id="annualDetail"></div>
+  </section>
+
+  <!-- ===== BUSINESS BREAKDOWN ===== -->
+  <section id="view-business" class="view hidden">
+    <div class="card">
+      <div class="card-head">
+        <h2>לפי עסקים</h2>
+        <span class="muted" id="businessRangeLabel"></span>
+      </div>
+      <p class="muted">כל חיוב משוייך לעסק (בית העסק שבו בוצע). כאן רואים כמה יצא לכל עסק, בלי קשר לקטגוריית התקציב שלו.</p>
+      <div class="import-map-grid">
+        <label class="muted">טווח
+          <select id="businessRangeSelect">
+            <option value="month">החודש הנוכחי</option>
+            <option value="all">כל הזמן</option>
+          </select>
+        </label>
+      </div>
+    </div>
+    <div class="card">
+      <div id="businessList2" class="category-list"></div>
+    </div>
+  </section>
+
+  <!-- ===== SETTINGS ===== -->
+  <section id="view-settings" class="view hidden">
+    <div class="card">
+      <h2>הגדרות ונתונים</h2>
+      <button class="btn-secondary" id="exportBtn">ייצוא גיבוי (JSON)</button>
+      <label class="file-label">
+        ייבוא גיבוי
+        <input type="file" id="importFile" accept="application/json">
+      </label>
+      <button class="btn-danger" id="resetBtn">איפוס כל הנתונים</button>
+    </div>
+  </section>
+
+</main>
+
+<nav class="tabbar">
+  <button data-view="dashboard" class="tab active">
+    <span class="tab-icon">🏠</span><span>ראשי</span>
+  </button>
+  <button data-view="add" class="tab">
+    <span class="tab-icon">➕</span><span>הוצאה</span>
+  </button>
+  <button data-view="budget" class="tab">
+    <span class="tab-icon">📋</span><span>תקציב</span>
+  </button>
+  <button data-view="annual" class="tab">
+    <span class="tab-icon">📅</span><span>שנתי</span>
+  </button>
+  <button data-view="business" class="tab">
+    <span class="tab-icon">🏪</span><span>עסקים</span>
+  </button>
+  <button data-view="settings" class="tab">
+    <span class="tab-icon">⚙️</span><span>הגדרות</span>
+  </button>
+</nav>
+
+<script src="vendor/xlsx.full.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
