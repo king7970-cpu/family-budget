@@ -1,5 +1,8 @@
-const CACHE_NAME = 'family-budget-v6';
-const ASSETS = ['./', './index.html', './style.css?v=2', './app.js?v=2', './manifest.json', './icon.svg', './vendor/xlsx.full.min.js'];
+const CACHE_NAME = 'family-budget-v7';
+const ASSETS = [
+  './', './index.html', './style.css?v=2', './app.js?v=2', './manifest.json', './icon.svg', './vendor/xlsx.full.min.js',
+  './add.html', './add.js?v=1', './add-manifest.json',
+];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

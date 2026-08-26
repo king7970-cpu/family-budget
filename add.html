@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f766e">
+<title>הוספת הוצאה מהירה</title>
+<link rel="manifest" href="add-manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="stylesheet" href="style.css?v=2">
+<style>
+  body { padding-bottom: 24px; }
+  .quick-wrap {
+    max-width: 420px;
+    margin: 0 auto;
+    padding: 18px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .quick-card { text-align: center; }
+  .quick-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin: 0 0 18px;
+  }
+  .amount-input {
+    width: 100%;
+    font-size: 2.6rem;
+    font-weight: 800;
+    text-align: center;
+    padding: 14px 8px;
+    border-radius: 14px;
+    border: 2px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    margin-bottom: 14px;
+  }
+  .amount-input:focus-visible { outline: none; border-color: var(--primary); }
+  .quick-select {
+    width: 100%;
+    font-size: 1.05rem;
+    padding: 13px;
+    margin-bottom: 14px;
+    text-align: center;
+    text-align-last: center;
+  }
+  .quick-toggle {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 0.82rem;
+    margin-bottom: 10px;
+    cursor: pointer;
+    text-decoration: underline;
+  }
+  .quick-extra { display: none; text-align: right; margin-bottom: 10px; }
+  .quick-extra.open { display: block; }
+  .quick-extra label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+  .quick-toast {
+    display: none;
+    background: color-mix(in srgb, var(--good) 16%, transparent);
+    color: var(--good);
+    border-radius: 10px;
+    padding: 10px;
+    font-weight: 700;
+    margin-bottom: 14px;
+  }
+  .quick-toast.show { display: block; animation: fadeIn .2s ease; }
+  .quick-back {
+    display: block;
+    text-align: center;
+    margin-top: 18px;
+    color: var(--muted);
+    font-size: 0.85rem;
+    text-decoration: none;
+  }
+  .quick-back:hover { color: var(--primary); }
+  .quick-empty { text-align: center; color: var(--muted); font-size: 0.9rem; }
+</style>
+</head>
+<body>
+
+<div class="quick-wrap">
+  <div class="card quick-card">
+    <p class="quick-title">➕ הוספת הוצאה</p>
+
+    <div id="quickToast" class="quick-toast">✓ נשמר בהצלחה</div>
+
+    <div id="quickForm">
+      <input type="number" id="qAmount" class="amount-input" placeholder="0" inputmode="decimal" step="0.01" min="0" autofocus>
+      <select id="qCategory" class="quick-select"></select>
+
+      <button type="button" class="quick-toggle" id="qToggleExtra">+ פרטים נוספים (עסק / תאריך / הערה)</button>
+      <div class="quick-extra" id="qExtra">
+        <label>עסק (בית עסק)
+          <input type="text" id="qBusiness" list="qBusinessList" placeholder="לדוגמה: סופר יינות ביתן">
+          <datalist id="qBusinessList"></datalist>
+        </label>
+        <label>תאריך
+          <input type="date" id="qDate">
+        </label>
+        <label>הערה
+          <input type="text" id="qNote">
+        </label>
+      </div>
+
+      <button type="button" class="btn-primary" id="qSave">שמור הוצאה</button>
+    </div>
+
+    <div id="quickEmpty" class="quick-empty" style="display:none">
+      עדיין אין קטגוריות מוגדרות. פתח קודם את האפליקציה המלאה כדי להגדיר תקציב.
+    </div>
+  </div>
+
+  <a class="quick-back" href="index.html">פתח את האפליקציה המלאה ←</a>
+</div>
+
+<script src="add.js?v=1"></script>
+</body>
+</html>
