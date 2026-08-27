@@ -127,11 +127,15 @@ a, button, input, select {
 
 @media (min-width: 1000px) {
   body { padding-bottom: 0; }
+  /* #app is centered with margin:0 auto — its own right-side padding reserves
+     clearance from the fixed sidebar, so the block never overlaps it and never
+     leaves a giant dead gap (the old asymmetric inline-start/end margins did,
+     because "start" flips to the physical right in RTL and swallowed all the
+     free space there instead of clearing space for the sidebar). */
   #app {
-    max-width: 880px;
-    margin-inline-end: 96px;
-    margin-inline-start: auto;
-    padding: 28px 28px 60px;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 28px calc(96px + 28px) 60px 28px;
   }
   .topbar { padding: 18px calc(96px + 28px) 18px 28px; }
 
@@ -159,9 +163,16 @@ a, button, input, select {
   .tab.active { background: color-mix(in srgb, var(--primary) 12%, transparent); }
   .tab-icon { font-size: 1.35rem; }
 
-  /* dashboard & business-breakdown cards flow in two columns on desktop */
-  #view-dashboard, #view-business { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-content: start; }
-  #view-dashboard .card, #view-business .card { margin-bottom: 0; }
+  /* cards flow into as many columns as fit, filling the available width
+     instead of a single narrow column — more columns appear on wider screens */
+  #view-dashboard, #view-business, #view-budget, #view-annual {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 16px;
+    align-content: start;
+    align-items: start; /* cards keep their natural height instead of stretching to match a tall neighbor */
+  }
+  #view-dashboard .card, #view-business .card, #view-budget .card, #view-annual .card { margin-bottom: 0; }
   #view-dashboard .summary-card,
   #view-dashboard > .card:nth-child(2) { grid-column: 1 / -1; }
 }
