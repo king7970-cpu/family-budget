@@ -171,36 +171,50 @@
       <div class="budget-breakdown" id="budgetBreakdown"></div>
     </div>
 
+    <div class="budget-search-wrap">
+      <input type="text" id="budgetSearch" class="budget-search" placeholder="🔍 חיפוש קטגוריה...">
+    </div>
+
     <div class="grid-2col">
-    <div class="card">
-      <h2>הכנסה חודשית</h2>
-      <label>סך הכנסה קבועה
-        <input type="number" id="incomeInput" step="1" min="0">
-      </label>
-    </div>
-
-    <div class="card">
-      <div class="card-head">
-        <h2>הוצאות קבועות</h2>
-        <button class="btn-small" id="addFixedBtn">+ הוסף</button>
+    <div class="card group-card" data-group="income">
+      <div class="group-header group-income">
+        <h2>הכנסה חודשית</h2>
       </div>
-      <div id="fixedEditList" class="edit-list"></div>
+      <div class="group-body">
+        <label>סך הכנסה קבועה
+          <input type="number" id="incomeInput" step="1" min="0">
+        </label>
+      </div>
     </div>
 
-    <div class="card">
-      <div class="card-head">
+    <div class="card group-card" data-group="fixed">
+      <div class="group-header group-fixed">
+        <h2>🔒 הוצאות קבועות</h2>
+        <button class="btn-small group-add-btn" id="addFixedBtn">+ הוסף</button>
+      </div>
+      <div class="group-body">
+        <div id="fixedEditList" class="edit-list"></div>
+      </div>
+    </div>
+
+    <div class="card group-card" data-group="variable">
+      <div class="group-header group-variable">
         <h2>קטגוריות משתנות (יעד חודשי)</h2>
-        <button class="btn-small" id="addVarBtn">+ הוסף</button>
+        <button class="btn-small group-add-btn" id="addVarBtn">+ הוסף</button>
       </div>
-      <div id="varEditList" class="edit-list"></div>
+      <div class="group-body">
+        <div id="varEditList" class="edit-list"></div>
+      </div>
     </div>
 
-    <div class="card">
-      <div class="card-head">
+    <div class="card group-card" data-group="funds">
+      <div class="group-header group-funds">
         <h2>קרנות שנתיות (הוצאות פעם בשנה)</h2>
-        <button class="btn-small" id="addFundBtn">+ הוסף</button>
+        <button class="btn-small group-add-btn" id="addFundBtn">+ הוסף</button>
       </div>
-      <div id="fundEditList" class="edit-list"></div>
+      <div class="group-body">
+        <div id="fundEditList" class="edit-list"></div>
+      </div>
     </div>
     </div>
   </section>

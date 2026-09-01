@@ -853,7 +853,25 @@ function renderBudgetView() {
   renderEditList('varEditList', data.variable, false);
   renderFundEditList();
   renderBudgetSummary();
+  applyBudgetSearch();
 }
+
+function applyBudgetSearch() {
+  const term = (document.getElementById('budgetSearch').value || '').trim().toLowerCase();
+  document.querySelectorAll('#view-budget .group-card[data-group]').forEach(card => {
+    if (card.dataset.group === 'income') return; // nothing to filter there
+    const rows = card.querySelectorAll('.edit-row, .fund-edit-row');
+    let anyVisible = !term;
+    rows.forEach(row => {
+      const nameInput = row.querySelector('input[data-field="name"]');
+      const match = !term || (nameInput && nameInput.value.trim().toLowerCase().includes(term));
+      row.style.display = match ? '' : 'none';
+      if (match) anyVisible = true;
+    });
+    card.classList.toggle('search-hidden', term.length > 0 && !anyVisible);
+  });
+}
+document.getElementById('budgetSearch').addEventListener('input', applyBudgetSearch);
 
 function renderBudgetSummary() {
   const income = data.income;

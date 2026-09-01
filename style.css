@@ -117,6 +117,41 @@ a, button, input, select {
   transition: box-shadow .2s, transform .2s, border-color .2s;
 }
 
+/* Budget page: bold color-coded group headers, one per category group */
+.group-card { padding: 0; overflow: hidden; }
+.group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 16px;
+  color: white;
+}
+.group-header h2 { margin: 0; font-size: 0.95rem; color: white; }
+.group-income    { background: linear-gradient(135deg, #16a34a, #15803d); }
+.group-fixed     { background: linear-gradient(135deg, #6366f1, #4f46e5); }
+.group-variable  { background: linear-gradient(135deg, #f59e0b, #d97706); }
+.group-funds     { background: linear-gradient(135deg, #0d9488, #0f766e); }
+.group-add-btn {
+  background: rgba(255,255,255,0.22);
+  color: white;
+  border: 1px solid rgba(255,255,255,0.4);
+}
+.group-add-btn:hover { background: rgba(255,255,255,0.34); }
+.group-body { padding: 16px; }
+.group-card.search-hidden { display: none; }
+
+.budget-search-wrap { margin-bottom: 14px; }
+.budget-search {
+  width: 100%;
+  font-size: 1rem;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text);
+}
+
 /* ===== Responsive: tablet & desktop ===== */
 @media (min-width: 720px) {
   #app { max-width: 680px; padding: 20px; }
