@@ -497,7 +497,17 @@ function renderBusinessView() {
     ? HEB_MONTHS[new Date().getMonth()]
     : 'כל הזמן';
 
-  const source = range === 'month' ? currentMonthExpenses() : data.expenses;
+  const catFilterSel = document.getElementById('businessCatFilter');
+  const prevFilterValue = catFilterSel.value;
+  catFilterSel.innerHTML = '<option value="">כל הקטגוריות</option>' + categoryOptionsHTML('', false);
+  if ([...catFilterSel.options].some(o => o.value === prevFilterValue)) catFilterSel.value = prevFilterValue;
+  const catFilter = catFilterSel.value;
+
+  let source = range === 'month' ? currentMonthExpenses() : data.expenses;
+  if (catFilter) {
+    const [fType, fId] = catFilter.split(':');
+    source = source.filter(e => e.catType === fType && e.catId === fId);
+  }
   const totals = {}; // business name -> {amount, count}
   source.forEach(e => {
     const name = e.business && e.business.trim() ? e.business.trim() : 'ללא שיוך לעסק';
@@ -510,7 +520,7 @@ function renderBusinessView() {
   el.innerHTML = '';
   const entries = Object.entries(totals).sort((a, b) => b[1].amount - a[1].amount);
   if (entries.length === 0) {
-    el.innerHTML = '<p class="empty-note">אין הוצאות עדיין בטווח הזה.</p>';
+    el.innerHTML = '<p class="empty-note">אין הוצאות בטווח/קטגוריה שנבחרו.</p>';
     return;
   }
   const grandTotal = entries.reduce((s, [, v]) => s + v.amount, 0);
@@ -530,6 +540,7 @@ function renderBusinessView() {
 }
 
 document.getElementById('businessRangeSelect').addEventListener('change', renderBusinessView);
+document.getElementById('businessCatFilter').addEventListener('change', renderBusinessView);
 
 function findCatName(type, id) {
   const list = type === 'fixed' ? data.fixed : type === 'variable' ? data.variable : data.funds;

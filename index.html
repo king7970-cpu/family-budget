@@ -63,19 +63,21 @@
       <p id="paceNote" class="pace-note"></p>
     </div>
 
-    <div class="card">
-      <div class="card-head">
-        <h2>קטגוריות משתנות</h2>
+    <div class="grid-2col">
+      <div class="card">
+        <div class="card-head">
+          <h2>קטגוריות משתנות</h2>
+        </div>
+        <div id="categoryList" class="category-list"></div>
       </div>
-      <div id="categoryList" class="category-list"></div>
-    </div>
 
-    <div class="card">
-      <div class="card-head">
-        <h2>קרנות שנתיות</h2>
-        <span class="muted">חיסכון חודשי להוצאות פעם-בשנה</span>
+      <div class="card">
+        <div class="card-head">
+          <h2>קרנות שנתיות</h2>
+          <span class="muted">חיסכון חודשי להוצאות פעם-בשנה</span>
+        </div>
+        <div id="fundsList" class="category-list"></div>
       </div>
-      <div id="fundsList" class="category-list"></div>
     </div>
   </section>
 
@@ -169,6 +171,7 @@
       <div class="budget-breakdown" id="budgetBreakdown"></div>
     </div>
 
+    <div class="grid-2col">
     <div class="card">
       <h2>הכנסה חודשית</h2>
       <label>סך הכנסה קבועה
@@ -199,6 +202,7 @@
       </div>
       <div id="fundEditList" class="edit-list"></div>
     </div>
+    </div>
   </section>
 
   <!-- ===== ANNUAL FUNDS DETAIL ===== -->
@@ -223,6 +227,11 @@
           <select id="businessRangeSelect">
             <option value="month">החודש הנוכחי</option>
             <option value="all">כל הזמן</option>
+          </select>
+        </label>
+        <label class="muted">קטגוריה
+          <select id="businessCatFilter">
+            <option value="">כל הקטגוריות</option>
           </select>
         </label>
       </div>

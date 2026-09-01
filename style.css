@@ -163,18 +163,40 @@ a, button, input, select {
   .tab.active { background: color-mix(in srgb, var(--primary) 12%, transparent); }
   .tab-icon { font-size: 1.35rem; }
 
-  /* cards flow into as many columns as fit, filling the available width
-     instead of a single narrow column — more columns appear on wider screens */
-  #view-dashboard, #view-business, #view-budget, #view-annual {
+  /* Cards flow into as many columns as fit, filling the available width
+     instead of a single narrow column. IMPORTANT: the grid lives on a small
+     .grid-2col wrapper around ONLY the cards meant to sit side by side —
+     never on a whole section that also has a full-width card in it. A
+     full-width item (grid-column:1/-1) makes the grid "claim" every track
+     for the whole grid, so on a later row with fewer items, auto-fit can't
+     tell those extra tracks are unused and won't collapse them — leaving a
+     visible empty column next to the last row's cards. */
+  #view-business {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
     gap: 16px;
     align-content: start;
-    align-items: start; /* cards keep their natural height instead of stretching to match a tall neighbor */
+    align-items: start;
   }
-  #view-dashboard .card, #view-business .card, #view-budget .card, #view-annual .card { margin-bottom: 0; }
-  #view-dashboard .summary-card,
-  #view-dashboard > .card:nth-child(2) { grid-column: 1 / -1; }
+  #view-business .card { margin-bottom: 0; }
+
+  .grid-2col {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 16px;
+    align-content: start;
+    align-items: start;
+  }
+  .grid-2col .card { margin-bottom: 0; }
+
+  #annualDetail {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 12px;
+    align-content: start;
+    align-items: start;
+  }
+  #annualDetail .annual-card { margin-bottom: 0; }
 }
 
 @media (hover: hover) {
