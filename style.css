@@ -97,7 +97,7 @@ a, button, input, select {
   padding: 14px;
 }
 
-.view.hidden { display: none; }
+.hidden { display: none; }
 
 .view {
   animation: fadeIn .25s ease;
@@ -355,6 +355,27 @@ form label {
   gap: 4px;
   font-size: 0.85rem;
   margin-bottom: 12px;
+  color: var(--muted);
+}
+
+.checkbox-label {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 8px !important;
+  padding: 10px;
+  background: var(--bg);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.checkbox-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.payment-tag {
+  display: inline-block;
+  font-size: 0.72rem;
   color: var(--muted);
 }
 

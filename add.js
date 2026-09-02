@@ -66,6 +66,10 @@ function initForm() {
     document.getElementById('qExtra').classList.toggle('open');
   });
 
+  document.getElementById('qPayMethod').addEventListener('change', (e) => {
+    document.getElementById('qCardLast4Wrap').classList.toggle('hidden', e.target.value !== 'credit');
+  });
+
   document.getElementById('qSave').addEventListener('click', saveExpense);
   document.getElementById('qAmount').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') saveExpense();
@@ -86,10 +90,24 @@ function saveExpense() {
   const business = document.getElementById('qBusiness').value.trim();
   const date = document.getElementById('qDate').value || todayStr();
   const note = document.getElementById('qNote').value.trim();
+  const paymentMethod = document.getElementById('qPayMethod').value;
+  const cardLast4 = paymentMethod === 'credit' ? document.getElementById('qCardLast4').value.trim().slice(-4) : '';
+  const isRecurring = document.getElementById('qRecurring').checked;
 
   const fresh = loadData() || data; // re-read in case another tab changed it
   fresh.expenses = fresh.expenses || [];
-  fresh.expenses.push({ id: uid(), date, catType, catId, amount, business, note });
+  fresh.recurringTemplates = fresh.recurringTemplates || [];
+
+  let recurringId = null;
+  if (isRecurring) {
+    const dayOfMonth = new Date(date).getDate() || 1;
+    const template = { id: uid(), catType, catId, amount, business, note, paymentMethod, cardLast4, dayOfMonth };
+    fresh.recurringTemplates.push(template);
+    recurringId = template.id;
+  }
+  const expense = { id: uid(), date, catType, catId, amount, business, note, paymentMethod, cardLast4 };
+  if (recurringId) expense.recurringId = recurringId;
+  fresh.expenses.push(expense);
   saveData(fresh);
   localStorage.setItem(LAST_CAT_KEY, catValue);
 
@@ -98,6 +116,10 @@ function saveExpense() {
   document.getElementById('qBusiness').value = '';
   document.getElementById('qNote').value = '';
   document.getElementById('qDate').value = todayStr();
+  document.getElementById('qPayMethod').value = '';
+  document.getElementById('qCardLast4').value = '';
+  document.getElementById('qCardLast4Wrap').classList.add('hidden');
+  document.getElementById('qRecurring').checked = false;
   amountInput.focus();
 
   const toast = document.getElementById('quickToast');

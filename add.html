@@ -100,11 +100,27 @@
       <input type="number" id="qAmount" class="amount-input" placeholder="0" inputmode="decimal" step="0.01" min="0" autofocus>
       <select id="qCategory" class="quick-select"></select>
 
-      <button type="button" class="quick-toggle" id="qToggleExtra">+ פרטים נוספים (עסק / תאריך / הערה)</button>
+      <button type="button" class="quick-toggle" id="qToggleExtra">+ פרטים נוספים (עסק / תשלום / תאריך / הערה)</button>
       <div class="quick-extra" id="qExtra">
         <label>עסק (בית עסק)
           <input type="text" id="qBusiness" list="qBusinessList" placeholder="לדוגמה: סופר יינות ביתן">
           <datalist id="qBusinessList"></datalist>
+        </label>
+        <label>אמצעי תשלום
+          <select id="qPayMethod">
+            <option value="">— לא צוין —</option>
+            <option value="cash">💵 מזומן</option>
+            <option value="credit">💳 אשראי</option>
+            <option value="transfer">🏦 העברה בנקאית</option>
+            <option value="check">📝 צ'ק</option>
+          </select>
+        </label>
+        <label id="qCardLast4Wrap" class="hidden">4 ספרות אחרונות
+          <input type="text" id="qCardLast4" maxlength="4" inputmode="numeric" placeholder="1234">
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="qRecurring">
+          🔄 הוצאה חוזרת כל חודש
         </label>
         <label>תאריך
           <input type="date" id="qDate">
@@ -125,6 +141,6 @@
   <a class="quick-back" href="index.html">פתח את האפליקציה המלאה ←</a>
 </div>
 
-<script src="add.js?v=1"></script>
+<script src="add.js?v=2"></script>
 </body>
 </html>

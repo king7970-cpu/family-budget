@@ -215,6 +215,7 @@ function defaultData() {
     ],
     expenses: [],
     keywordMap: {}, // "type:id" -> [keyword, keyword, ...] learned from past imports
+    recurringTemplates: [], // expenses marked "recurring" — auto-recreated each month
   };
 }
 
@@ -225,6 +226,7 @@ function applyMigrations(parsed) {
   if (!parsed.fixed) parsed.fixed = [];
   if (!parsed.variable) parsed.variable = [];
   if (!parsed.funds) parsed.funds = [];
+  if (!parsed.recurringTemplates) parsed.recurringTemplates = [];
 
   // one-time migration: make sure "אשראי מתגלגל" exists as a fixed category
   const hasRevolvingCredit = [...parsed.fixed, ...parsed.variable, ...parsed.funds]
@@ -252,6 +254,25 @@ function applyMigrations(parsed) {
     if (!parsed.keywordMap[key]) parsed.keywordMap[key] = [];
     const normBiz = entry.biz.trim().toLowerCase();
     if (normBiz && !parsed.keywordMap[key].includes(normBiz)) parsed.keywordMap[key].push(normBiz);
+  });
+
+  // auto-create this month's instance of each recurring-expense template
+  // (once per month — safe to run on every load since it checks first)
+  const nowR = new Date();
+  const cmKeyR = monthKey(nowR);
+  const daysInMonthR = new Date(nowR.getFullYear(), nowR.getMonth() + 1, 0).getDate();
+  (parsed.recurringTemplates || []).forEach(t => {
+    const alreadyExists = parsed.expenses.some(e => e.recurringId === t.id && e.date.slice(0, 7) === cmKeyR);
+    if (!alreadyExists) {
+      const day = Math.min(t.dayOfMonth || 1, daysInMonthR);
+      const date = `${nowR.getFullYear()}-${String(nowR.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      parsed.expenses.push({
+        id: uid(), date, catType: t.catType, catId: t.catId, amount: t.amount,
+        business: t.business || '', note: t.note || '',
+        paymentMethod: t.paymentMethod || '', cardLast4: t.cardLast4 || '',
+        recurringId: t.id,
+      });
+    }
   });
 
   return parsed;
@@ -316,7 +337,37 @@ function renderAll() {
   renderBudgetView();
   renderAnnualView();
   renderBusinessView();
+  renderRecurringList();
   document.getElementById('monthTitle').textContent = 'תקציב המשפחה — ' + HEB_MONTHS[new Date().getMonth()];
+}
+
+function renderRecurringList() {
+  const el = document.getElementById('recurringList');
+  el.innerHTML = '';
+  if (data.recurringTemplates.length === 0) {
+    el.innerHTML = '<p class="empty-note">אין הוצאות חוזרות מוגדרות עדיין.</p>';
+    return;
+  }
+  data.recurringTemplates.forEach(t => {
+    const catName = findCatName(t.catType, t.catId);
+    const row = document.createElement('div');
+    row.className = 'edit-row';
+    row.style.gridTemplateColumns = '1fr auto';
+    const label = (t.business ? t.business + ' · ' : '') + catName + ' · ' + fmtNum(t.amount) + ' ₪ · יום ' + t.dayOfMonth + ' לחודש';
+    row.innerHTML = `
+      <span>${escapeHtml(label)}</span>
+      <button class="remove-btn" data-id="${t.id}">✕</button>
+    `;
+    el.appendChild(row);
+  });
+  el.querySelectorAll('.remove-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!confirm('להפסיק את ההוצאה החוזרת הזו? (הוצאות שכבר נוצרו בעבר יישארו)')) return;
+      data.recurringTemplates = data.recurringTemplates.filter(t => t.id !== btn.dataset.id);
+      save();
+      renderAll();
+    });
+  });
 }
 
 function renderDashboard() {
@@ -466,12 +517,15 @@ function renderExpenseView() {
   monthExpenses.forEach(e => {
     const catName = findCatName(e.catType, e.catId);
     const bizLabel = e.business ? escapeHtml(e.business) : catName;
+    const payTag = formatPaymentTag(e);
+    const recurringTag = e.recurringId ? ' · 🔄 חוזרת' : '';
     const row = document.createElement('div');
     row.className = 'expense-item';
     row.innerHTML = `
       <div class="expense-main">
         <span class="expense-cat">${bizLabel}</span>
-        <span class="expense-date">${e.date} · ${escapeHtml(catName)}${e.note ? ' · ' + escapeHtml(e.note) : ''}</span>
+        <span class="expense-date">${e.date} · ${escapeHtml(catName)}${e.note ? ' · ' + escapeHtml(e.note) : ''}${recurringTag}</span>
+        ${payTag ? `<span class="payment-tag">${payTag}</span>` : ''}
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         <span class="expense-amount">${fmtNum(e.amount)} ₪</span>
@@ -548,6 +602,24 @@ function findCatName(type, id) {
   return found ? found.name : '(נמחק)';
 }
 
+const PAYMENT_METHODS = {
+  cash: { label: 'מזומן', icon: '💵' },
+  credit: { label: 'אשראי', icon: '💳' },
+  transfer: { label: 'העברה בנקאית', icon: '🏦' },
+  check: { label: "צ'ק", icon: '📝' },
+};
+
+function formatPaymentTag(e) {
+  const m = PAYMENT_METHODS[e.paymentMethod];
+  if (!m) return '';
+  if (e.paymentMethod === 'credit' && e.cardLast4) return `${m.icon} אשראי ****${e.cardLast4}`;
+  return `${m.icon} ${m.label}`;
+}
+
+document.getElementById('expPayMethod').addEventListener('change', (e) => {
+  document.getElementById('expCardLast4Wrap').classList.toggle('hidden', e.target.value !== 'credit');
+});
+
 document.getElementById('expenseForm').addEventListener('submit', (ev) => {
   ev.preventDefault();
   const [catType, catId] = document.getElementById('expCategory').value.split(':');
@@ -555,12 +627,29 @@ document.getElementById('expenseForm').addEventListener('submit', (ev) => {
   const dateVal = document.getElementById('expDate').value || todayStr();
   const business = document.getElementById('expBusiness').value.trim();
   const note = document.getElementById('expNote').value.trim();
+  const paymentMethod = document.getElementById('expPayMethod').value;
+  const cardLast4 = paymentMethod === 'credit' ? document.getElementById('expCardLast4').value.trim().slice(-4) : '';
+  const isRecurring = document.getElementById('expRecurring').checked;
   if (!catType || !amount || amount <= 0) return;
-  data.expenses.push({ id: uid(), date: dateVal, catType, catId, amount, business, note });
+
+  let recurringId = null;
+  if (isRecurring) {
+    const dayOfMonth = new Date(dateVal).getDate() || 1;
+    const template = { id: uid(), catType, catId, amount, business, note, paymentMethod, cardLast4, dayOfMonth };
+    data.recurringTemplates.push(template);
+    recurringId = template.id;
+  }
+  const expense = { id: uid(), date: dateVal, catType, catId, amount, business, note, paymentMethod, cardLast4 };
+  if (recurringId) expense.recurringId = recurringId;
+  data.expenses.push(expense);
   save();
   document.getElementById('expAmount').value = '';
   document.getElementById('expBusiness').value = '';
   document.getElementById('expNote').value = '';
+  document.getElementById('expPayMethod').value = '';
+  document.getElementById('expCardLast4').value = '';
+  document.getElementById('expCardLast4Wrap').classList.add('hidden');
+  document.getElementById('expRecurring').checked = false;
   renderAll();
 });
 
