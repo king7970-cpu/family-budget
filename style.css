@@ -690,3 +690,63 @@ button {
   color: var(--text);
   font-weight: 600;
 }
+
+/* ===== Balance-confirmation modal (quick-add pages) ===== */
+.balance-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 50;
+}
+.balance-modal-overlay.hidden { display: none; }
+.balance-modal {
+  background: var(--card-bg);
+  border-radius: 18px;
+  padding: 26px 22px;
+  max-width: 360px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+  animation: fadeIn .2s ease;
+}
+.balance-modal-check {
+  font-size: 2.4rem;
+  margin-bottom: 6px;
+}
+.balance-modal-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin-bottom: 18px;
+}
+.balance-modal-cat {
+  font-size: 0.9rem;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.balance-modal-remaining {
+  font-size: 2rem;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+.balance-modal-of {
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin-bottom: 14px;
+}
+.balance-modal .progress-outer { margin-bottom: 18px; }
+.balance-modal-close {
+  width: 100%;
+  background: var(--primary);
+  color: white;
+  border: none;
+  padding: 13px;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.balance-modal-close:hover { background: var(--primary-dark); }

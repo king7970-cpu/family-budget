@@ -1,7 +1,8 @@
-const CACHE_NAME = 'family-budget-v9';
+const CACHE_NAME = 'family-budget-v10';
 const ASSETS = [
   './', './index.html', './style.css?v=2', './app.js?v=2', './manifest.json', './icon.svg', './vendor/xlsx.full.min.js',
   './add.html', './add.js?v=2', './add-manifest.json',
+  './add-kids.html', './add-kids-manifest.json',
 ];
 
 self.addEventListener('install', (event) => {

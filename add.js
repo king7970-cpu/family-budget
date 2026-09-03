@@ -23,6 +23,54 @@ function saveData(d) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(d));
 }
 
+function monthsBetweenInclusive(startKey, endKey) {
+  const [sy, sm] = startKey.split('-').map(Number);
+  const [ey, em] = endKey.split('-').map(Number);
+  return Math.max(1, (ey - sy) * 12 + (em - sm) + 1);
+}
+
+// Returns { name, remaining, budget, isFund } for the category an expense was
+// just logged against, so we can show "X ₪ left this month" right after saving.
+function computeCategoryBalance(freshData, catType, catId, dateStr) {
+  const monthKeyStr = dateStr.slice(0, 7);
+  if (catType === 'fund') {
+    const fund = (freshData.funds || []).find(f => f.id === catId);
+    if (!fund) return null;
+    const months = monthsBetweenInclusive(fund.startMonth || monthKeyStr, monthKeyStr);
+    const contributed = months * (fund.annualTarget / 12);
+    const withdrawn = (freshData.expenses || [])
+      .filter(e => e.catType === 'fund' && e.catId === fund.id)
+      .reduce((s, e) => s + e.amount, 0);
+    return { name: fund.name, remaining: contributed - withdrawn, budget: fund.annualTarget, isFund: true };
+  }
+  const list = catType === 'fixed' ? freshData.fixed : freshData.variable;
+  const cat = (list || []).find(c => c.id === catId);
+  if (!cat) return null;
+  const spent = (freshData.expenses || [])
+    .filter(e => e.catType === catType && e.catId === catId && e.date.slice(0, 7) === monthKeyStr)
+    .reduce((s, e) => s + e.amount, 0);
+  return { name: cat.name, remaining: cat.amount - spent, budget: cat.amount, isFund: false };
+}
+
+function fmtILS(n) { return Math.round(n || 0).toLocaleString('he-IL') + ' ₪'; }
+
+function showBalanceModal(balance) {
+  const overlay = document.getElementById('balanceModalOverlay');
+  if (!overlay || !balance) return;
+  document.getElementById('balanceModalCat').textContent = balance.name;
+  document.getElementById('balanceModalRemaining').textContent = fmtILS(balance.remaining);
+  document.getElementById('balanceModalRemaining').style.color = balance.remaining < 0 ? 'var(--danger)' : 'var(--good)';
+  document.getElementById('balanceModalOf').textContent =
+    (balance.isFund ? 'נצבר בקרן, מתוך יעד שנתי ' : 'נשאר החודש, מתוך תקציב ') + fmtILS(balance.budget);
+  const pct = balance.budget > 0 ? (balance.isFund
+    ? ((balance.budget - balance.remaining) / balance.budget) * 100
+    : ((balance.budget - balance.remaining) / balance.budget) * 100) : 0;
+  const bar = document.getElementById('balanceModalBar');
+  bar.style.width = Math.max(0, Math.min(100, pct)) + '%';
+  bar.className = 'progress-inner' + (balance.remaining < 0 ? ' over' : pct > 85 ? ' warn' : '');
+  overlay.classList.remove('hidden');
+}
+
 const data = loadData();
 const hasCategories = data && ((data.variable && data.variable.length) || (data.fixed && data.fixed.length) || (data.funds && data.funds.length));
 
@@ -74,6 +122,12 @@ function initForm() {
   document.getElementById('qAmount').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') saveExpense();
   });
+
+  const closeBtn = document.getElementById('balanceModalClose');
+  if (closeBtn) closeBtn.addEventListener('click', () => {
+    document.getElementById('balanceModalOverlay').classList.add('hidden');
+    document.getElementById('qAmount').focus();
+  });
 }
 
 function saveExpense() {
@@ -111,6 +165,8 @@ function saveExpense() {
   saveData(fresh);
   localStorage.setItem(LAST_CAT_KEY, catValue);
 
+  const balance = computeCategoryBalance(fresh, catType, catId, date);
+
   // reset for the next quick entry, keep category selected
   amountInput.value = '';
   document.getElementById('qBusiness').value = '';
@@ -120,12 +176,8 @@ function saveExpense() {
   document.getElementById('qCardLast4').value = '';
   document.getElementById('qCardLast4Wrap').classList.add('hidden');
   document.getElementById('qRecurring').checked = false;
-  amountInput.focus();
 
-  const toast = document.getElementById('quickToast');
-  toast.classList.add('show');
-  clearTimeout(window._toastTimer);
-  window._toastTimer = setTimeout(() => toast.classList.remove('show'), 1800);
+  showBalanceModal(balance);
 }
 
 if ('serviceWorker' in navigator) {
