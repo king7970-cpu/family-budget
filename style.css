@@ -750,3 +750,19 @@ button {
   cursor: pointer;
 }
 .balance-modal-close:hover { background: var(--primary-dark); }
+
+.edit-expense-modal {
+  max-width: 420px;
+  text-align: right;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.edit-expense-modal .balance-modal-title { text-align: center; }
+.edit-modal-actions {
+  display: flex;
+  gap: 10px;
+}
+.edit-modal-actions .btn-primary,
+.edit-modal-actions .btn-secondary {
+  margin-bottom: 0;
+}

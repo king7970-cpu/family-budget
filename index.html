@@ -81,6 +81,47 @@
     </div>
   </section>
 
+  <!-- ===== EDIT EXPENSE MODAL ===== -->
+  <div class="balance-modal-overlay hidden" id="editExpenseModalOverlay">
+    <div class="balance-modal edit-expense-modal">
+      <p class="balance-modal-title">✏️ עריכת הוצאה</p>
+      <form id="editExpenseForm">
+        <input type="hidden" id="editExpId">
+        <label>תאריך
+          <input type="date" id="editExpDate" required>
+        </label>
+        <label>קטגוריה
+          <select id="editExpCategory" required></select>
+        </label>
+        <label>עסק (בית עסק)
+          <input type="text" id="editExpBusiness">
+        </label>
+        <label>סכום (₪)
+          <input type="number" id="editExpAmount" step="0.01" min="0" required inputmode="decimal">
+        </label>
+        <label>אמצעי תשלום
+          <select id="editExpPayMethod">
+            <option value="">— לא צוין —</option>
+            <option value="cash">💵 מזומן</option>
+            <option value="credit">💳 אשראי</option>
+            <option value="transfer">🏦 העברה בנקאית</option>
+            <option value="check">📝 צ'ק</option>
+          </select>
+        </label>
+        <label id="editExpCardLast4Wrap" class="hidden">4 ספרות אחרונות
+          <input type="text" id="editExpCardLast4" maxlength="4" inputmode="numeric" placeholder="1234">
+        </label>
+        <label>הערה
+          <input type="text" id="editExpNote">
+        </label>
+        <div class="edit-modal-actions">
+          <button type="submit" class="btn-primary">שמור שינויים</button>
+          <button type="button" class="btn-secondary" id="editExpCancelBtn">ביטול</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- ===== ADD EXPENSE ===== -->
   <section id="view-add" class="view hidden">
     <div class="card">

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'family-budget-v10';
+const CACHE_NAME = 'family-budget-v11';
 const ASSETS = [
   './', './index.html', './style.css?v=2', './app.js?v=2', './manifest.json', './icon.svg', './vendor/xlsx.full.min.js',
   './add.html', './add.js?v=2', './add-manifest.json',

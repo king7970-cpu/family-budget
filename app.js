@@ -529,19 +529,73 @@ function renderExpenseView() {
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         <span class="expense-amount">${fmtNum(e.amount)} ₪</span>
+        <button class="expense-edit" data-id="${e.id}" aria-label="ערוך">✏️</button>
         <button class="expense-del" data-id="${e.id}" aria-label="מחק">🗑️</button>
       </div>
     `;
     log.appendChild(row);
   });
+  log.querySelectorAll('.expense-edit').forEach(btn => {
+    btn.addEventListener('click', () => openEditExpenseModal(btn.dataset.id));
+  });
   log.querySelectorAll('.expense-del').forEach(btn => {
     btn.addEventListener('click', () => {
+      const exp = data.expenses.find(e => e.id === btn.dataset.id);
+      const label = exp ? `${fmtNum(exp.amount)} ₪ (${findCatName(exp.catType, exp.catId)})` : 'ההוצאה הזו';
+      if (!confirm(`למחוק את ${label}? פעולה זו לא ניתנת לביטול — אם הוזן משהו לא נכון, עדיף ללחוץ ✏️ ולערוך.`)) return;
       data.expenses = data.expenses.filter(e => e.id !== btn.dataset.id);
       save();
       renderAll();
     });
   });
 }
+
+/* ===== Edit expense modal ===== */
+
+function openEditExpenseModal(expenseId) {
+  const exp = data.expenses.find(e => e.id === expenseId);
+  if (!exp) return;
+  document.getElementById('editExpId').value = exp.id;
+  document.getElementById('editExpDate').value = exp.date;
+  document.getElementById('editExpCategory').innerHTML = categoryOptionsHTML(exp.catType + ':' + exp.catId, false);
+  document.getElementById('editExpBusiness').value = exp.business || '';
+  document.getElementById('editExpAmount').value = exp.amount;
+  document.getElementById('editExpPayMethod').value = exp.paymentMethod || '';
+  document.getElementById('editExpCardLast4').value = exp.cardLast4 || '';
+  document.getElementById('editExpCardLast4Wrap').classList.toggle('hidden', exp.paymentMethod !== 'credit');
+  document.getElementById('editExpNote').value = exp.note || '';
+  document.getElementById('editExpenseModalOverlay').classList.remove('hidden');
+}
+
+function closeEditExpenseModal() {
+  document.getElementById('editExpenseModalOverlay').classList.add('hidden');
+}
+
+document.getElementById('editExpPayMethod').addEventListener('change', (e) => {
+  document.getElementById('editExpCardLast4Wrap').classList.toggle('hidden', e.target.value !== 'credit');
+});
+document.getElementById('editExpCancelBtn').addEventListener('click', closeEditExpenseModal);
+
+document.getElementById('editExpenseForm').addEventListener('submit', (ev) => {
+  ev.preventDefault();
+  const id = document.getElementById('editExpId').value;
+  const exp = data.expenses.find(e => e.id === id);
+  if (!exp) { closeEditExpenseModal(); return; }
+  const [catType, catId] = document.getElementById('editExpCategory').value.split(':');
+  const amount = parseFloat(document.getElementById('editExpAmount').value);
+  if (!catType || !amount || amount <= 0) return;
+  exp.date = document.getElementById('editExpDate').value || exp.date;
+  exp.catType = catType;
+  exp.catId = catId;
+  exp.business = document.getElementById('editExpBusiness').value.trim();
+  exp.amount = amount;
+  exp.paymentMethod = document.getElementById('editExpPayMethod').value;
+  exp.cardLast4 = exp.paymentMethod === 'credit' ? document.getElementById('editExpCardLast4').value.trim().slice(-4) : '';
+  exp.note = document.getElementById('editExpNote').value.trim();
+  save();
+  closeEditExpenseModal();
+  renderAll();
+});
 
 /* ===== Business breakdown view ===== */
 
@@ -1029,7 +1083,14 @@ function renderEditList(containerId, arr, isFund) {
   el.querySelectorAll('.remove-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const idx = arr.findIndex(x => x.id === btn.dataset.id);
-      if (idx >= 0) arr.splice(idx, 1);
+      if (idx < 0) return;
+      const item = arr[idx];
+      const linkedCount = data.expenses.filter(e => e.catId === item.id).length;
+      const warn = linkedCount > 0
+        ? ` שים לב: יש ${linkedCount} הוצאות רשומות תחת "${item.name}" — הן לא יימחקו, אבל יוצגו כ"(נמחק)".`
+        : '';
+      if (!confirm(`למחוק את הקטגוריה "${item.name}"?${warn}`)) return;
+      arr.splice(idx, 1);
       save();
       renderAll();
     });
@@ -1080,7 +1141,14 @@ function renderFundEditList() {
   el.querySelectorAll('.remove-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const idx = data.funds.findIndex(x => x.id === btn.dataset.id);
-      if (idx >= 0) data.funds.splice(idx, 1);
+      if (idx < 0) return;
+      const fund = data.funds[idx];
+      const linkedCount = data.expenses.filter(e => e.catId === fund.id).length;
+      const warn = linkedCount > 0
+        ? ` שים לב: יש ${linkedCount} הוצאות רשומות תחת "${fund.name}" — הן לא יימחקו, אבל יוצגו כ"(נמחק)".`
+        : '';
+      if (!confirm(`למחוק את הקרן "${fund.name}"?${warn}`)) return;
+      data.funds.splice(idx, 1);
       save();
       renderAll();
     });
@@ -1149,7 +1217,7 @@ function renderAnnualView() {
 
 /* ===== Settings: export / import / reset ===== */
 
-document.getElementById('exportBtn').addEventListener('click', () => {
+function downloadBackup() {
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -1157,7 +1225,9 @@ document.getElementById('exportBtn').addEventListener('click', () => {
   a.download = `family-budget-backup-${todayStr()}.json`;
   a.click();
   URL.revokeObjectURL(url);
-});
+}
+
+document.getElementById('exportBtn').addEventListener('click', downloadBackup);
 
 document.getElementById('importFile').addEventListener('change', (e) => {
   const file = e.target.files[0];
@@ -1179,7 +1249,8 @@ document.getElementById('importFile').addEventListener('change', (e) => {
 });
 
 document.getElementById('resetBtn').addEventListener('click', () => {
-  if (confirm('לאפס את כל הנתונים? פעולה זו לא ניתנת לביטול.')) {
+  if (confirm(`לאפס את כל הנתונים? פעולה זו לא ניתנת לביטול.\n\nלפני שממשיכים נוריד גיבוי אוטומטי — אם תתחרט, אפשר לשחזר אותו דרך "ייבוא גיבוי".`)) {
+    downloadBackup();
     data = defaultData();
     save();
     renderAll();
