@@ -122,6 +122,19 @@
     </div>
   </div>
 
+  <!-- ===== BALANCE-CONFIRMATION MODAL (after saving an expense) ===== -->
+  <div class="balance-modal-overlay hidden" id="balanceModalOverlay">
+    <div class="balance-modal">
+      <div class="balance-modal-check">✅</div>
+      <p class="balance-modal-title">ההוצאה נשמרה</p>
+      <p class="balance-modal-cat" id="balanceModalCat"></p>
+      <p class="balance-modal-remaining" id="balanceModalRemaining"></p>
+      <p class="balance-modal-of" id="balanceModalOf"></p>
+      <div class="progress-outer"><div class="progress-inner" id="balanceModalBar"></div></div>
+      <button type="button" class="balance-modal-close" id="balanceModalClose">סגור</button>
+    </div>
+  </div>
+
   <!-- ===== ADD EXPENSE ===== -->
   <section id="view-add" class="view hidden">
     <div class="card">
@@ -357,6 +370,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js?v=1"></script>
-<script src="app.js?v=3"></script>
+<script src="app.js?v=4"></script>
 </body>
 </html>

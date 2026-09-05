@@ -733,6 +733,39 @@ document.getElementById('expPayMethod').addEventListener('change', (e) => {
   document.getElementById('expCardLast4Wrap').classList.toggle('hidden', e.target.value !== 'credit');
 });
 
+// Returns { name, remaining, budget, isFund } for a category, so we can show
+// "X ₪ left this month" right after saving an expense against it.
+function computeCategoryBalance(catType, catId) {
+  if (catType === 'fund') {
+    const fund = data.funds.find(f => f.id === catId);
+    if (!fund) return null;
+    return { name: fund.name, remaining: fundSaved(fund, monthKey(new Date())), budget: fund.annualTarget, isFund: true };
+  }
+  const list = catType === 'fixed' ? data.fixed : data.variable;
+  const cat = list.find(c => c.id === catId);
+  if (!cat) return null;
+  return { name: cat.name, remaining: cat.amount - categorySpent(cat.id, catType), budget: cat.amount, isFund: false };
+}
+
+function showBalanceModal(balance) {
+  const overlay = document.getElementById('balanceModalOverlay');
+  if (!overlay || !balance) return;
+  document.getElementById('balanceModalCat').textContent = balance.name;
+  document.getElementById('balanceModalRemaining').textContent = fmt(balance.remaining);
+  document.getElementById('balanceModalRemaining').style.color = balance.remaining < 0 ? 'var(--danger)' : 'var(--good)';
+  document.getElementById('balanceModalOf').textContent =
+    (balance.isFund ? 'נצבר בקרן, מתוך יעד שנתי ' : 'נשאר החודש, מתוך תקציב ') + fmt(balance.budget);
+  const pct = balance.budget > 0 ? ((balance.budget - balance.remaining) / balance.budget) * 100 : 0;
+  const bar = document.getElementById('balanceModalBar');
+  bar.style.width = Math.max(0, Math.min(100, pct)) + '%';
+  bar.className = 'progress-inner' + (balance.remaining < 0 ? ' over' : pct > 85 ? ' warn' : '');
+  overlay.classList.remove('hidden');
+}
+
+document.getElementById('balanceModalClose').addEventListener('click', () => {
+  document.getElementById('balanceModalOverlay').classList.add('hidden');
+});
+
 document.getElementById('expenseForm').addEventListener('submit', (ev) => {
   ev.preventDefault();
   const [catType, catId] = document.getElementById('expCategory').value.split(':');
@@ -756,6 +789,9 @@ document.getElementById('expenseForm').addEventListener('submit', (ev) => {
   if (recurringId) expense.recurringId = recurringId;
   data.expenses.push(expense);
   save();
+
+  const balance = computeCategoryBalance(catType, catId);
+
   document.getElementById('expAmount').value = '';
   document.getElementById('expBusiness').value = '';
   document.getElementById('expNote').value = '';
@@ -764,6 +800,8 @@ document.getElementById('expenseForm').addEventListener('submit', (ev) => {
   document.getElementById('expCardLast4Wrap').classList.add('hidden');
   document.getElementById('expRecurring').checked = false;
   renderAll();
+
+  showBalanceModal(balance);
 });
 
 /* ===== Import expenses from Excel/CSV ===== */
