@@ -278,21 +278,80 @@ function applyMigrations(parsed) {
   return parsed;
 }
 
+// Local-only load: never touches the cloud. Used for the very first instant
+// paint (from cache) before we've had a chance to check what the cloud has —
+// a device with empty localStorage must NOT get to write anything to the
+// shared cloud doc until AFTER it has looked (see initCloudSync below),
+// otherwise an empty phone could stomp everyone else's real data on open.
 function load() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = applyMigrations(JSON.parse(raw));
-      save(parsed);
+      saveLocalOnly(parsed);
       return parsed;
     }
   } catch (e) {}
   const d = applyMigrations(defaultData());
-  save(d);
+  saveLocalOnly(d);
   return d;
 }
-function save(d) {
+function saveLocalOnly(d) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(d || data));
+}
+function save(d) {
+  const payload = d || data;
+  saveLocalOnly(payload);
+  cloudSave(payload);
+}
+
+/* ===== Cloud sync (Firestore) — keeps every device in sync in real time =====
+   window.budgetDocRef is set up by firebase-config.js. If it's missing
+   (script blocked, offline, no config) the app just keeps working off
+   localStorage only, exactly like before. */
+
+function cloudSave(payload) {
+  if (!window.budgetDocRef) return;
+  window.budgetDocRef.set(payload).catch((err) => {
+    console.error('Cloud sync save failed — change is still saved locally.', err);
+  });
+}
+
+// Runs once at startup: checks the cloud BEFORE this device ever writes to
+// it. If real shared data already exists there, it wins over whatever this
+// device had locally (even real-looking local data — the cloud is the
+// source of truth once it exists). Only if the cloud is truly empty do we
+// seed it from this device. THEN, and only then, we subscribe for live
+// updates from other devices going forward.
+async function initCloudSync() {
+  if (!window.budgetDocRef) return;
+  try {
+    const snap = await window.budgetDocRef.get();
+    if (snap.exists) {
+      data = applyMigrations(snap.data());
+      saveLocalOnly(data);
+      renderAll();
+    } else {
+      cloudSave(data);
+    }
+  } catch (err) {
+    console.error('Initial cloud fetch failed — staying on local data for now.', err);
+  }
+  startCloudSync();
+}
+
+function startCloudSync() {
+  if (!window.budgetDocRef) return;
+  window.budgetDocRef.onSnapshot((snap) => {
+    if (snap.metadata.hasPendingWrites) return; // our own write — already rendered locally
+    if (!snap.exists) return; // handled by initCloudSync's seed step
+    const remote = snap.data();
+    data = applyMigrations(remote);
+    saveLocalOnly(data);
+    renderAll();
+  }, (err) => {
+    console.error('Cloud sync listen failed — staying on local data.', err);
+  });
 }
 
 /* ===== Derived calculations ===== */
@@ -1279,6 +1338,7 @@ document.getElementById('menuBtn').addEventListener('click', () => {
 
 document.getElementById('expDate').value = todayStr();
 renderAll();
+initCloudSync();
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {

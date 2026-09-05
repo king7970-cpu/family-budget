@@ -21,6 +21,26 @@ function loadData() {
 }
 function saveData(d) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(d));
+  if (window.budgetDocRef) {
+    window.budgetDocRef.set(d).catch((err) => console.error('Cloud sync save failed', err));
+  }
+}
+
+// Fetches the latest shared data from the cloud (short timeout), falling
+// back to the local cache if offline or the cloud isn't reachable in time.
+async function fetchFreshData() {
+  if (window.budgetDocRef) {
+    try {
+      const snap = await Promise.race([
+        window.budgetDocRef.get(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000)),
+      ]);
+      if (snap.exists) return snap.data();
+    } catch (e) {
+      console.error('Cloud fetch failed, using local cache', e);
+    }
+  }
+  return loadData();
 }
 
 function monthsBetweenInclusive(startKey, endKey) {
@@ -71,15 +91,18 @@ function showBalanceModal(balance) {
   overlay.classList.remove('hidden');
 }
 
-const data = loadData();
-const hasCategories = data && ((data.variable && data.variable.length) || (data.fixed && data.fixed.length) || (data.funds && data.funds.length));
+let data = loadData();
 
-if (!hasCategories) {
-  document.getElementById('quickForm').style.display = 'none';
-  document.getElementById('quickEmpty').style.display = 'block';
-} else {
-  initForm();
-}
+(async () => {
+  data = (await fetchFreshData()) || data;
+  const hasCategories = data && ((data.variable && data.variable.length) || (data.fixed && data.fixed.length) || (data.funds && data.funds.length));
+  if (!hasCategories) {
+    document.getElementById('quickForm').style.display = 'none';
+    document.getElementById('quickEmpty').style.display = 'block';
+  } else {
+    initForm();
+  }
+})();
 
 function initForm() {
   // category select, grouped like the main app
@@ -130,7 +153,7 @@ function initForm() {
   });
 }
 
-function saveExpense() {
+async function saveExpense() {
   const amountInput = document.getElementById('qAmount');
   const amount = parseFloat(amountInput.value);
   const catValue = document.getElementById('qCategory').value;
@@ -148,7 +171,10 @@ function saveExpense() {
   const cardLast4 = paymentMethod === 'credit' ? document.getElementById('qCardLast4').value.trim().slice(-4) : '';
   const isRecurring = document.getElementById('qRecurring').checked;
 
-  const fresh = loadData() || data; // re-read in case another tab changed it
+  const saveBtn = document.getElementById('qSave');
+  saveBtn.disabled = true;
+  const fresh = (await fetchFreshData()) || data; // pull the latest shared data first, so we never clobber another device's changes
+  saveBtn.disabled = false;
   fresh.expenses = fresh.expenses || [];
   fresh.recurringTemplates = fresh.recurringTemplates || [];
 
