@@ -104,26 +104,53 @@ let data = loadData();
   }
 })();
 
-function initForm() {
-  // category select, grouped like the main app
-  const sel = document.getElementById('qCategory');
-  const lastCat = localStorage.getItem(LAST_CAT_KEY) || '';
-  const groups = [
-    { label: 'משתנות', type: 'variable', items: data.variable || [] },
-    { label: 'קרנות שנתיות', type: 'fund', items: data.funds || [] },
-    { label: 'קבועות', type: 'fixed', items: data.fixed || [] },
+function categoryGroups() {
+  return [
+    { type: 'variable', items: data.variable || [] },
+    { type: 'fund', items: data.funds || [] },
+    { type: 'fixed', items: data.fixed || [] },
   ];
+}
+
+// Looks up a category by exactly what the user typed — trims, matches
+// case-insensitively. Returns "type:id" or null.
+function resolveCategoryByName(typedName) {
+  const norm = (typedName || '').trim().toLowerCase();
+  if (!norm) return null;
+  for (const g of categoryGroups()) {
+    const found = g.items.find(item => item.name.trim().toLowerCase() === norm);
+    if (found) return g.type + ':' + found.id;
+  }
+  return null;
+}
+
+function findCatName(type, id) {
+  const list = type === 'fixed' ? data.fixed : type === 'variable' ? data.variable : data.funds;
+  const found = (list || []).find(x => x.id === id);
+  return found ? found.name : '';
+}
+
+function flagInvalidCategory(inputEl) {
+  inputEl.focus();
+  inputEl.style.borderColor = 'var(--danger)';
+  setTimeout(() => { inputEl.style.borderColor = ''; }, 1200);
+}
+
+function initForm() {
+  // category field: type-to-search text input backed by a shared datalist
+  const catInput = document.getElementById('qCategory');
+  const datalist = document.getElementById('qCategoryDatalist');
   let html = '';
-  groups.forEach(g => {
-    if (!g.items.length) return;
-    html += `<optgroup label="${escapeHtml(g.label)}">`;
-    g.items.forEach(item => {
-      const value = g.type + ':' + item.id;
-      html += `<option value="${value}" ${value === lastCat ? 'selected' : ''}>${escapeHtml(item.name)}</option>`;
-    });
-    html += `</optgroup>`;
+  categoryGroups().forEach(g => {
+    g.items.forEach(item => { html += `<option value="${escapeHtml(item.name)}"></option>`; });
   });
-  sel.innerHTML = html;
+  datalist.innerHTML = html;
+
+  const lastCat = localStorage.getItem(LAST_CAT_KEY) || '';
+  if (lastCat) {
+    const [lastType, lastId] = lastCat.split(':');
+    catInput.value = findCatName(lastType, lastId);
+  }
 
   // business autocomplete, from history
   const businessSet = new Set();
@@ -156,11 +183,24 @@ function initForm() {
 async function saveExpense() {
   const amountInput = document.getElementById('qAmount');
   const amount = parseFloat(amountInput.value);
-  const catValue = document.getElementById('qCategory').value;
-  if (!catValue || !amount || amount <= 0) {
+  const catInput = document.getElementById('qCategory');
+  if (!amount || amount <= 0) {
     amountInput.focus();
     amountInput.style.borderColor = 'var(--danger)';
     setTimeout(() => { amountInput.style.borderColor = ''; }, 900);
+    return;
+  }
+
+  const saveBtn = document.getElementById('qSave');
+  saveBtn.disabled = true;
+  // Pull the latest shared data first — so we never clobber another device's
+  // changes, and so a category added on another device resolves correctly too.
+  data = (await fetchFreshData()) || data;
+  saveBtn.disabled = false;
+
+  const catValue = resolveCategoryByName(catInput.value);
+  if (!catValue) {
+    flagInvalidCategory(catInput);
     return;
   }
   const [catType, catId] = catValue.split(':');
@@ -171,10 +211,7 @@ async function saveExpense() {
   const cardLast4 = paymentMethod === 'credit' ? document.getElementById('qCardLast4').value.trim().slice(-4) : '';
   const isRecurring = document.getElementById('qRecurring').checked;
 
-  const saveBtn = document.getElementById('qSave');
-  saveBtn.disabled = true;
-  const fresh = (await fetchFreshData()) || data; // pull the latest shared data first, so we never clobber another device's changes
-  saveBtn.disabled = false;
+  const fresh = data;
   fresh.expenses = fresh.expenses || [];
   fresh.recurringTemplates = fresh.recurringTemplates || [];
 

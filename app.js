@@ -552,6 +552,36 @@ function categoryOptionsHTML(selectedValue, withPlaceholder) {
   return html;
 }
 
+// Flat (no optgroups — a <datalist> can't render them) list of category
+// names, for the free-text "type to search" category fields.
+function categoryDatalistHTML() {
+  let html = '';
+  categoryGroups().forEach(g => {
+    g.items.forEach(item => {
+      html += `<option value="${escapeHtml(item.name)}"></option>`;
+    });
+  });
+  return html;
+}
+
+// Looks up a category by exactly what the user typed into a category field —
+// trims whitespace, matches case-insensitively. Returns "type:id" or null.
+function resolveCategoryByName(typedName) {
+  const norm = (typedName || '').trim().toLowerCase();
+  if (!norm) return null;
+  for (const g of categoryGroups()) {
+    const found = g.items.find(item => item.name.trim().toLowerCase() === norm);
+    if (found) return g.type + ':' + found.id;
+  }
+  return null;
+}
+
+function flagInvalidCategory(inputEl) {
+  inputEl.focus();
+  inputEl.style.borderColor = 'var(--danger)';
+  setTimeout(() => { inputEl.style.borderColor = ''; }, 1200);
+}
+
 function allBusinessNames() {
   const set = new Set();
   data.expenses.forEach(e => { if (e.business) set.add(e.business); });
@@ -559,9 +589,7 @@ function allBusinessNames() {
 }
 
 function renderExpenseView() {
-  const sel = document.getElementById('expCategory');
-  const prevValue = sel.value;
-  sel.innerHTML = categoryOptionsHTML(prevValue, false);
+  document.getElementById('categoryDatalist').innerHTML = categoryDatalistHTML();
 
   const businessList = document.getElementById('businessList');
   businessList.innerHTML = allBusinessNames().map(b => `<option value="${escapeHtml(b)}"></option>`).join('');
@@ -616,7 +644,7 @@ function openEditExpenseModal(expenseId) {
   if (!exp) return;
   document.getElementById('editExpId').value = exp.id;
   document.getElementById('editExpDate').value = exp.date;
-  document.getElementById('editExpCategory').innerHTML = categoryOptionsHTML(exp.catType + ':' + exp.catId, false);
+  document.getElementById('editExpCategory').value = findCatName(exp.catType, exp.catId);
   document.getElementById('editExpBusiness').value = exp.business || '';
   document.getElementById('editExpAmount').value = exp.amount;
   document.getElementById('editExpPayMethod').value = exp.paymentMethod || '';
@@ -640,9 +668,12 @@ document.getElementById('editExpenseForm').addEventListener('submit', (ev) => {
   const id = document.getElementById('editExpId').value;
   const exp = data.expenses.find(e => e.id === id);
   if (!exp) { closeEditExpenseModal(); return; }
-  const [catType, catId] = document.getElementById('editExpCategory').value.split(':');
+  const catInput = document.getElementById('editExpCategory');
+  const resolved = resolveCategoryByName(catInput.value);
   const amount = parseFloat(document.getElementById('editExpAmount').value);
-  if (!catType || !amount || amount <= 0) return;
+  if (!resolved) { flagInvalidCategory(catInput); return; }
+  if (!amount || amount <= 0) return;
+  const [catType, catId] = resolved.split(':');
   exp.date = document.getElementById('editExpDate').value || exp.date;
   exp.catType = catType;
   exp.catId = catId;
@@ -768,7 +799,8 @@ document.getElementById('balanceModalClose').addEventListener('click', () => {
 
 document.getElementById('expenseForm').addEventListener('submit', (ev) => {
   ev.preventDefault();
-  const [catType, catId] = document.getElementById('expCategory').value.split(':');
+  const catInput = document.getElementById('expCategory');
+  const resolved = resolveCategoryByName(catInput.value);
   const amount = parseFloat(document.getElementById('expAmount').value);
   const dateVal = document.getElementById('expDate').value || todayStr();
   const business = document.getElementById('expBusiness').value.trim();
@@ -776,7 +808,9 @@ document.getElementById('expenseForm').addEventListener('submit', (ev) => {
   const paymentMethod = document.getElementById('expPayMethod').value;
   const cardLast4 = paymentMethod === 'credit' ? document.getElementById('expCardLast4').value.trim().slice(-4) : '';
   const isRecurring = document.getElementById('expRecurring').checked;
-  if (!catType || !amount || amount <= 0) return;
+  if (!resolved) { flagInvalidCategory(catInput); return; }
+  if (!amount || amount <= 0) return;
+  const [catType, catId] = resolved.split(':');
 
   let recurringId = null;
   if (isRecurring) {
