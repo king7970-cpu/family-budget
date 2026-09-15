@@ -373,9 +373,26 @@ function fundSaved(fund, currentMonthKey) {
   return contributed - withdrawn;
 }
 
+function expensesForMonth(monthKeyStr) {
+  return data.expenses.filter(e => e.date.slice(0, 7) === monthKeyStr);
+}
+
 function currentMonthExpenses() {
-  const cm = monthKey(new Date());
-  return data.expenses.filter(e => e.date.slice(0, 7) === cm);
+  return expensesForMonth(monthKey(new Date()));
+}
+
+// Every distinct YYYY-MM that has at least one expense, plus the current
+// month always included even if empty — newest first, for the history picker.
+function getAvailableMonthKeys() {
+  const set = new Set(data.expenses.map(e => e.date.slice(0, 7)));
+  set.add(monthKey(new Date()));
+  set.add(selectedLogMonth); // keep whatever month is being browsed in the list even if it just emptied out
+  return [...set].sort((a, b) => b.localeCompare(a));
+}
+
+function monthKeyLabel(monthKeyStr) {
+  const [y, m] = monthKeyStr.split('-').map(Number);
+  return `${HEB_MONTHS[m - 1]} ${y}`;
 }
 
 function fixedTotal() { return data.fixed.reduce((s, c) => s + c.amount, 0); }
@@ -486,7 +503,7 @@ function renderDashboard() {
     const spent = categorySpent(c.id, 'variable');
     const p = c.amount > 0 ? (spent / c.amount) * 100 : 0;
     const row = document.createElement('div');
-    row.className = 'cat-row';
+    row.className = 'cat-row clickable';
     row.innerHTML = `
       <div class="cat-top">
         <span class="cat-name">${escapeHtml(c.name)}</span>
@@ -494,6 +511,7 @@ function renderDashboard() {
       </div>
       <div class="cat-bar-outer"><div class="cat-bar-inner ${p > 100 ? 'over' : p > 85 ? 'warn' : ''}" style="width:${Math.min(100, p)}%"></div></div>
     `;
+    row.addEventListener('click', () => openCategoryDetailModal('variable', c.id));
     list.appendChild(row);
   });
 
@@ -508,7 +526,7 @@ function renderDashboard() {
     const saved = fundSaved(f, cmKey);
     const p = f.annualTarget > 0 ? (saved / f.annualTarget) * 100 : 0;
     const row = document.createElement('div');
-    row.className = 'cat-row fund-row';
+    row.className = 'cat-row fund-row clickable';
     row.innerHTML = `
       <div class="cat-top">
         <span class="cat-name">${escapeHtml(f.name)} <span class="muted">(${HEB_MONTHS[f.month - 1]})</span></span>
@@ -516,6 +534,7 @@ function renderDashboard() {
       </div>
       <div class="cat-bar-outer"><div class="cat-bar-inner ${p < 0 ? 'over' : ''}" style="width:${Math.max(0, Math.min(100, p))}%"></div></div>
     `;
+    row.addEventListener('click', () => openCategoryDetailModal('fund', f.id));
     fList.appendChild(row);
   });
 }
@@ -588,27 +607,15 @@ function allBusinessNames() {
   return [...set].sort((a, b) => a.localeCompare(b, 'he'));
 }
 
-function renderExpenseView() {
-  document.getElementById('categoryDatalist').innerHTML = categoryDatalistHTML();
-
-  const businessList = document.getElementById('businessList');
-  businessList.innerHTML = allBusinessNames().map(b => `<option value="${escapeHtml(b)}"></option>`).join('');
-
-  const log = document.getElementById('expenseLog');
-  log.innerHTML = '';
-  const monthExpenses = currentMonthExpenses().slice().sort((a, b) => b.date.localeCompare(a.date));
-  if (monthExpenses.length === 0) {
-    log.innerHTML = '<p class="empty-note">עדיין אין הוצאות רשומות החודש.</p>';
-    return;
-  }
-  monthExpenses.forEach(e => {
-    const catName = findCatName(e.catType, e.catId);
-    const bizLabel = e.business ? escapeHtml(e.business) : catName;
-    const payTag = formatPaymentTag(e);
-    const recurringTag = e.recurringId ? ' · 🔄 חוזרת' : '';
-    const row = document.createElement('div');
-    row.className = 'expense-item';
-    row.innerHTML = `
+// One expense row's markup — shared by the main expense log and the
+// category/all-expenses detail modal, so edit/delete work the same everywhere.
+function expenseRowHTML(e) {
+  const catName = findCatName(e.catType, e.catId);
+  const bizLabel = e.business ? escapeHtml(e.business) : catName;
+  const payTag = formatPaymentTag(e);
+  const recurringTag = e.recurringId ? ' · 🔄 חוזרת' : '';
+  return `
+    <div class="expense-item">
       <div class="expense-main">
         <span class="expense-cat">${bizLabel}</span>
         <span class="expense-date">${e.date} · ${escapeHtml(catName)}${e.note ? ' · ' + escapeHtml(e.note) : ''}${recurringTag}</span>
@@ -619,13 +626,18 @@ function renderExpenseView() {
         <button class="expense-edit" data-id="${e.id}" aria-label="ערוך">✏️</button>
         <button class="expense-del" data-id="${e.id}" aria-label="מחק">🗑️</button>
       </div>
-    `;
-    log.appendChild(row);
-  });
-  log.querySelectorAll('.expense-edit').forEach(btn => {
+    </div>
+  `;
+}
+
+// Wires the edit/delete buttons inside any container of expense rows. After a
+// successful delete, also re-renders the detail modal if one is open, so it
+// doesn't keep showing an item that no longer exists.
+function wireExpenseRowActions(container) {
+  container.querySelectorAll('.expense-edit').forEach(btn => {
     btn.addEventListener('click', () => openEditExpenseModal(btn.dataset.id));
   });
-  log.querySelectorAll('.expense-del').forEach(btn => {
+  container.querySelectorAll('.expense-del').forEach(btn => {
     btn.addEventListener('click', () => {
       const exp = data.expenses.find(e => e.id === btn.dataset.id);
       const label = exp ? `${fmtNum(exp.amount)} ₪ (${findCatName(exp.catType, exp.catId)})` : 'ההוצאה הזו';
@@ -633,9 +645,138 @@ function renderExpenseView() {
       data.expenses = data.expenses.filter(e => e.id !== btn.dataset.id);
       save();
       renderAll();
+      renderDetailModalIfOpen();
     });
   });
 }
+
+// Which month the expense LOG (not the dashboard — that's always the real
+// current month) is currently showing. Defaults to this month; the user can
+// switch to browse history via the select in the "הוצאה" tab.
+let selectedLogMonth = monthKey(new Date());
+
+function renderExpenseView() {
+  document.getElementById('categoryDatalist').innerHTML = categoryDatalistHTML();
+
+  const businessList = document.getElementById('businessList');
+  businessList.innerHTML = allBusinessNames().map(b => `<option value="${escapeHtml(b)}"></option>`).join('');
+
+  const monthSel = document.getElementById('expenseMonthSelect');
+  const months = getAvailableMonthKeys();
+  if (!months.includes(selectedLogMonth)) selectedLogMonth = monthKey(new Date());
+  monthSel.innerHTML = months.map(mk =>
+    `<option value="${mk}" ${mk === selectedLogMonth ? 'selected' : ''}>${monthKeyLabel(mk)}</option>`
+  ).join('');
+
+  const isCurrentMonth = selectedLogMonth === monthKey(new Date());
+  document.getElementById('expenseLogTitle').textContent = isCurrentMonth ? 'הוצאות החודש' : 'הוצאות — ' + monthKeyLabel(selectedLogMonth);
+
+  const log = document.getElementById('expenseLog');
+  const monthExpenses = expensesForMonth(selectedLogMonth).slice().sort((a, b) => b.date.localeCompare(a.date));
+  const totalEl = document.getElementById('expenseLogTotal');
+  if (monthExpenses.length === 0) {
+    totalEl.textContent = '';
+    log.innerHTML = '<p class="empty-note">אין הוצאות רשומות בחודש הזה.</p>';
+    return;
+  }
+  const total = monthExpenses.reduce((s, e) => s + e.amount, 0);
+  totalEl.textContent = `${monthExpenses.length} הוצאות · סה"כ ${fmt(total)}`;
+  log.innerHTML = monthExpenses.map(expenseRowHTML).join('');
+  wireExpenseRowActions(log);
+}
+
+document.getElementById('expenseMonthSelect').addEventListener('change', (e) => {
+  selectedLogMonth = e.target.value;
+  renderExpenseView();
+});
+
+/* ===== Expense detail modal (per category, or all expenses this month) =====
+   Clicking a category/fund row on the dashboard, or the "full detail" link,
+   opens this same modal in one of two modes. currentDetailModal remembers
+   which mode is open so edits/deletes elsewhere can refresh it live. */
+
+let currentDetailModal = null; // { mode: 'category', catType, catId } | { mode: 'all' } | null
+
+function openCategoryDetailModal(catType, catId) {
+  currentDetailModal = { mode: 'category', catType, catId };
+  renderDetailModalContent();
+  document.getElementById('detailModalOverlay').classList.remove('hidden');
+}
+
+function openAllExpensesModal() {
+  currentDetailModal = { mode: 'all' };
+  renderDetailModalContent();
+  document.getElementById('detailModalOverlay').classList.remove('hidden');
+}
+
+function closeDetailModal() {
+  currentDetailModal = null;
+  document.getElementById('detailModalOverlay').classList.add('hidden');
+}
+
+function renderDetailModalIfOpen() {
+  if (!document.getElementById('detailModalOverlay').classList.contains('hidden')) {
+    renderDetailModalContent();
+  }
+}
+
+function renderDetailModalContent() {
+  if (!currentDetailModal) return;
+  const titleEl = document.getElementById('detailModalTitle');
+  const summaryEl = document.getElementById('detailModalSummary');
+  const bar = document.getElementById('detailModalBar');
+  const listEl = document.getElementById('detailModalList');
+
+  let expenses, title, summaryText, pct, over;
+
+  if (currentDetailModal.mode === 'all') {
+    expenses = currentMonthExpenses().slice();
+    const total = expenses.reduce((s, e) => s + e.amount, 0);
+    title = '📋 כל ההוצאות החודש';
+    summaryText = `${expenses.length} הוצאות · סה"כ ${fmt(total)}`;
+    bar.parentElement.style.display = 'none';
+    pct = 0; over = false;
+  } else {
+    const { catType, catId } = currentDetailModal;
+    const name = findCatName(catType, catId);
+    if (catType === 'fund') {
+      const fund = data.funds.find(f => f.id === catId);
+      if (!fund) { closeDetailModal(); return; }
+      expenses = data.expenses.filter(e => e.catType === 'fund' && e.catId === catId).slice();
+      const saved = fundSaved(fund, monthKey(new Date()));
+      title = '📅 ' + name;
+      summaryText = `נצבר: ${fmt(saved)} מתוך יעד שנתי ${fmt(fund.annualTarget)}`;
+      pct = fund.annualTarget > 0 ? ((fund.annualTarget - saved) / fund.annualTarget) * 100 : 0;
+      over = saved < 0;
+      bar.parentElement.style.display = '';
+    } else {
+      const list = catType === 'fixed' ? data.fixed : data.variable;
+      const cat = list.find(c => c.id === catId);
+      if (!cat) { closeDetailModal(); return; }
+      expenses = currentMonthExpenses().filter(e => e.catType === catType && e.catId === catId);
+      const spent = categorySpent(catId, catType);
+      title = name;
+      summaryText = `${fmtNum(spent)} / ${fmtNum(cat.amount)} ₪ החודש`;
+      pct = cat.amount > 0 ? (spent / cat.amount) * 100 : 0;
+      over = spent > cat.amount;
+      bar.parentElement.style.display = '';
+    }
+  }
+
+  titleEl.textContent = title;
+  summaryEl.textContent = summaryText;
+  bar.style.width = Math.max(0, Math.min(100, pct)) + '%';
+  bar.className = 'progress-inner' + (over ? ' over' : pct > 85 ? ' warn' : '');
+
+  expenses.sort((a, b) => b.date.localeCompare(a.date));
+  listEl.innerHTML = expenses.length
+    ? expenses.map(expenseRowHTML).join('')
+    : '<p class="empty-note">אין הוצאות עדיין.</p>';
+  wireExpenseRowActions(listEl);
+}
+
+document.getElementById('detailModalCloseX').addEventListener('click', closeDetailModal);
+document.getElementById('viewAllExpensesBtn').addEventListener('click', openAllExpensesModal);
 
 /* ===== Edit expense modal ===== */
 
@@ -685,6 +826,7 @@ document.getElementById('editExpenseForm').addEventListener('submit', (ev) => {
   save();
   closeEditExpenseModal();
   renderAll();
+  renderDetailModalIfOpen();
 });
 
 /* ===== Business breakdown view ===== */
@@ -751,6 +893,7 @@ const PAYMENT_METHODS = {
   credit: { label: 'אשראי', icon: '💳' },
   transfer: { label: 'העברה בנקאית', icon: '🏦' },
   check: { label: "צ'ק", icon: '📝' },
+  fuelcard: { label: 'דלקן', icon: '⛽' },
 };
 
 function formatPaymentTag(e) {
@@ -834,6 +977,7 @@ document.getElementById('expenseForm').addEventListener('submit', (ev) => {
   document.getElementById('expCardLast4Wrap').classList.add('hidden');
   document.getElementById('expRecurring').checked = false;
   renderAll();
+  renderDetailModalIfOpen();
 
   showBalanceModal(balance);
 });

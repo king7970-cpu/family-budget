@@ -8,7 +8,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon.svg">
-<link rel="stylesheet" href="style.css?v=2">
+<link rel="stylesheet" href="style.css?v=3">
 </head>
 <body>
 
@@ -61,6 +61,7 @@
         <div class="progress-inner" id="monthProgressBar"></div>
       </div>
       <p id="paceNote" class="pace-note"></p>
+      <button type="button" class="detail-link" id="viewAllExpensesBtn">📋 פירוט מלא של כל ההוצאות החודש ←</button>
     </div>
 
     <div class="grid-2col">
@@ -68,6 +69,7 @@
         <div class="card-head">
           <h2>קטגוריות משתנות</h2>
         </div>
+        <p class="muted card-hint">לחצו על קטגוריה לפירוט ההוצאות בה</p>
         <div id="categoryList" class="category-list"></div>
       </div>
 
@@ -80,6 +82,19 @@
       </div>
     </div>
   </section>
+
+  <!-- ===== EXPENSE DETAIL MODAL (per category / all this month) ===== -->
+  <div class="balance-modal-overlay hidden" id="detailModalOverlay">
+    <div class="balance-modal detail-modal">
+      <div class="detail-modal-head">
+        <p class="balance-modal-title" id="detailModalTitle"></p>
+        <button type="button" class="detail-modal-close-x" id="detailModalCloseX" aria-label="סגור">✕</button>
+      </div>
+      <p class="detail-modal-summary" id="detailModalSummary"></p>
+      <div class="progress-outer"><div class="progress-inner" id="detailModalBar"></div></div>
+      <div id="detailModalList" class="expense-log detail-modal-list"></div>
+    </div>
+  </div>
 
   <!-- ===== EDIT EXPENSE MODAL ===== -->
   <div class="balance-modal-overlay hidden" id="editExpenseModalOverlay">
@@ -106,6 +121,7 @@
             <option value="credit">💳 אשראי</option>
             <option value="transfer">🏦 העברה בנקאית</option>
             <option value="check">📝 צ'ק</option>
+            <option value="fuelcard">⛽ דלקן</option>
           </select>
         </label>
         <label id="editExpCardLast4Wrap" class="hidden">4 ספרות אחרונות
@@ -161,6 +177,7 @@
             <option value="credit">💳 אשראי</option>
             <option value="transfer">🏦 העברה בנקאית</option>
             <option value="check">📝 צ'ק</option>
+            <option value="fuelcard">⛽ דלקן</option>
           </select>
         </label>
         <label id="expCardLast4Wrap" class="hidden">4 ספרות אחרונות של הכרטיס
@@ -209,8 +226,10 @@
 
     <div class="card">
       <div class="card-head">
-        <h2>הוצאות החודש</h2>
+        <h2 id="expenseLogTitle">הוצאות החודש</h2>
+        <select id="expenseMonthSelect" class="month-picker"></select>
       </div>
+      <p class="muted" id="expenseLogTotal"></p>
       <div id="expenseLog" class="expense-log"></div>
     </div>
   </section>
@@ -371,6 +390,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js?v=1"></script>
-<script src="app.js?v=5"></script>
+<script src="app.js?v=7"></script>
 </body>
 </html>

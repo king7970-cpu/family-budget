@@ -762,6 +762,73 @@ button {
   display: flex;
   gap: 10px;
 }
+
+/* ===== Expense detail modal (per category / all this month) ===== */
+.detail-modal {
+  max-width: 480px;
+  text-align: right;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+}
+.detail-modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+.detail-modal-head .balance-modal-title { margin-bottom: 0; }
+.detail-modal-close-x {
+  background: none;
+  border: none;
+  font-size: 1.1rem;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px 8px;
+  flex-shrink: 0;
+}
+.detail-modal-close-x:hover { color: var(--danger); }
+.detail-modal-summary {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.detail-modal .progress-outer { margin-bottom: 14px; }
+.detail-modal-list {
+  overflow-y: auto;
+  flex: 1;
+}
+
+.card-hint {
+  font-size: 0.75rem;
+  margin: -4px 0 8px;
+}
+
+.month-picker {
+  width: auto;
+  padding: 6px 10px;
+  font-size: 0.82rem;
+  flex-shrink: 0;
+}
+
+.cat-row.clickable { cursor: pointer; }
+@media (hover: hover) {
+  .cat-row.clickable:hover .cat-name { color: var(--primary); }
+}
+
+.detail-link {
+  display: block;
+  width: 100%;
+  text-align: center;
+  background: none;
+  border: none;
+  color: var(--primary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 8px 0 0;
+  cursor: pointer;
+}
+.detail-link:hover { text-decoration: underline; }
 .edit-modal-actions .btn-primary,
 .edit-modal-actions .btn-secondary {
   margin-bottom: 0;
