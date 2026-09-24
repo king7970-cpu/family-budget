@@ -811,6 +811,37 @@ button {
   flex-shrink: 0;
 }
 
+.month-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.month-nav-btn {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 9px;
+  font-size: 0.8rem;
+  color: var(--text);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.month-nav-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+.date-range-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.date-range-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.82rem;
+}
+
 .cat-row.clickable { cursor: pointer; }
 @media (hover: hover) {
   .cat-row.clickable:hover .cat-name { color: var(--primary); }

@@ -8,7 +8,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon.svg">
-<link rel="stylesheet" href="style.css?v=3">
+<link rel="stylesheet" href="style.css?v=4">
 </head>
 <body>
 
@@ -227,10 +227,28 @@
     <div class="card">
       <div class="card-head">
         <h2 id="expenseLogTitle">הוצאות החודש</h2>
-        <select id="expenseMonthSelect" class="month-picker"></select>
+        <div class="month-nav">
+          <button type="button" class="month-nav-btn" id="nextMonthBtn" aria-label="חודש הבא">▶</button>
+          <select id="expenseMonthSelect" class="month-picker"></select>
+          <button type="button" class="month-nav-btn" id="prevMonthBtn" aria-label="חודש קודם">◀</button>
+        </div>
       </div>
       <p class="muted" id="expenseLogTotal"></p>
       <div id="expenseLog" class="expense-log"></div>
+    </div>
+
+    <div class="card">
+      <h2>📊 ייצוא דוח לאקסל</h2>
+      <p class="muted">בוחרים טווח תאריכים, ומקבלים קובץ Excel עם כל ההוצאות בטווח + סיכום לפי קטגוריה.</p>
+      <div class="date-range-grid">
+        <label class="muted">מתאריך
+          <input type="date" id="reportFromDate">
+        </label>
+        <label class="muted">עד תאריך
+          <input type="date" id="reportToDate">
+        </label>
+      </div>
+      <button type="button" class="btn-secondary" id="exportReportBtn">⬇️ ייצוא לאקסל</button>
     </div>
   </section>
 
@@ -325,7 +343,7 @@
         <h2>לפי עסקים</h2>
         <span class="muted" id="businessRangeLabel"></span>
       </div>
-      <p class="muted">כל חיוב משוייך לעסק (בית העסק שבו בוצע). כאן רואים כמה יצא לכל עסק, בלי קשר לקטגוריית התקציב שלו.</p>
+      <p class="muted">רק הוצאות שמשוייכות לקטגוריה עסקית ("עסקי - ...") — מציג לכל עסק/ספק כמה יצא לו, בלי הוצאות הבית.</p>
       <div class="import-map-grid">
         <label class="muted">טווח
           <select id="businessRangeSelect">
@@ -390,6 +408,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js?v=1"></script>
-<script src="app.js?v=7"></script>
+<script src="app.js?v=8"></script>
 </body>
 </html>

@@ -395,6 +395,11 @@ function monthKeyLabel(monthKeyStr) {
   return `${HEB_MONTHS[m - 1]} ${y}`;
 }
 
+function shiftMonth(monthKeyStr, delta) {
+  const [y, m] = monthKeyStr.split('-').map(Number);
+  return monthKey(new Date(y, m - 1 + delta, 1));
+}
+
 function fixedTotal() { return data.fixed.reduce((s, c) => s + c.amount, 0); }
 function variableTotal() { return data.variable.reduce((s, c) => s + c.amount, 0); }
 function fundsMonthlyTotal() { return data.funds.reduce((s, f) => s + fundMonthlyShare(f), 0); }
@@ -689,6 +694,57 @@ document.getElementById('expenseMonthSelect').addEventListener('change', (e) => 
   selectedLogMonth = e.target.value;
   renderExpenseView();
 });
+document.getElementById('prevMonthBtn').addEventListener('click', () => {
+  selectedLogMonth = shiftMonth(selectedLogMonth, -1);
+  renderExpenseView();
+});
+document.getElementById('nextMonthBtn').addEventListener('click', () => {
+  selectedLogMonth = shiftMonth(selectedLogMonth, 1);
+  renderExpenseView();
+});
+
+/* ===== Excel report export (custom date range) ===== */
+
+function isoDate(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+
+document.getElementById('exportReportBtn').addEventListener('click', () => {
+  const fromVal = document.getElementById('reportFromDate').value;
+  const toVal = document.getElementById('reportToDate').value;
+  if (!fromVal || !toVal) { alert('יש לבחור טווח תאריכים'); return; }
+  if (fromVal > toVal) { alert('תאריך ההתחלה חייב להיות לפני תאריך הסיום (או שווה לו)'); return; }
+
+  const rows = data.expenses
+    .filter(e => e.date >= fromVal && e.date <= toVal)
+    .slice()
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  if (rows.length === 0) { alert('אין הוצאות בטווח התאריכים שנבחר'); return; }
+
+  const detailRows = rows.map(e => ({
+    'תאריך': e.date,
+    'קטגוריה': findCatName(e.catType, e.catId),
+    'עסק': e.business || '',
+    'סכום': e.amount,
+    'אמצעי תשלום': formatPaymentTag(e).replace(/^\S+\s/, ''), // drop the leading emoji, keep the text
+    'הערה': e.note || '',
+  }));
+
+  const totalsByCategory = {};
+  rows.forEach(e => {
+    const name = findCatName(e.catType, e.catId);
+    totalsByCategory[name] = (totalsByCategory[name] || 0) + e.amount;
+  });
+  const grandTotal = rows.reduce((s, e) => s + e.amount, 0);
+  const summaryRows = Object.entries(totalsByCategory)
+    .sort((a, b) => b[1] - a[1])
+    .map(([name, total]) => ({ 'קטגוריה': name, 'סה"כ (₪)': Math.round(total * 100) / 100 }));
+  summaryRows.push({ 'קטגוריה': 'סה"כ כללי', 'סה"כ (₪)': Math.round(grandTotal * 100) / 100 });
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(detailRows), 'פירוט');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summaryRows), 'סיכום לפי קטגוריה');
+  XLSX.writeFile(wb, `דוח_הוצאות_${fromVal}_עד_${toVal}.xlsx`);
+});
 
 /* ===== Expense detail modal (per category, or all expenses this month) =====
    Clicking a category/fund row on the dashboard, or the "full detail" link,
@@ -831,6 +887,28 @@ document.getElementById('editExpenseForm').addEventListener('submit', (ev) => {
 
 /* ===== Business breakdown view ===== */
 
+// A category counts as "business" if it's named with the "עסקי - " prefix
+// (the convention used since the Excel-import training data) — so the
+// עסקים tab only ever shows real business spending, never personal/household.
+function isBusinessCategory(catType, catId) {
+  return findCatName(catType, catId).startsWith('עסקי - ');
+}
+
+function businessCategoryOptionsHTML(selectedValue) {
+  let html = '<option value="">כל הקטגוריות העסקיות</option>';
+  categoryGroups().forEach(g => {
+    const bizItems = g.items.filter(item => item.name.startsWith('עסקי - '));
+    if (!bizItems.length) return;
+    html += `<optgroup label="${escapeHtml(g.label)}">`;
+    bizItems.forEach(item => {
+      const value = g.type + ':' + item.id;
+      html += `<option value="${value}" ${value === selectedValue ? 'selected' : ''}>${escapeHtml(item.name)}</option>`;
+    });
+    html += `</optgroup>`;
+  });
+  return html;
+}
+
 function renderBusinessView() {
   const range = document.getElementById('businessRangeSelect').value;
   document.getElementById('businessRangeLabel').textContent = range === 'month'
@@ -839,11 +917,12 @@ function renderBusinessView() {
 
   const catFilterSel = document.getElementById('businessCatFilter');
   const prevFilterValue = catFilterSel.value;
-  catFilterSel.innerHTML = '<option value="">כל הקטגוריות</option>' + categoryOptionsHTML('', false);
+  catFilterSel.innerHTML = businessCategoryOptionsHTML(prevFilterValue);
   if ([...catFilterSel.options].some(o => o.value === prevFilterValue)) catFilterSel.value = prevFilterValue;
   const catFilter = catFilterSel.value;
 
   let source = range === 'month' ? currentMonthExpenses() : data.expenses;
+  source = source.filter(e => isBusinessCategory(e.catType, e.catId)); // עסקים tab = business expenses only
   if (catFilter) {
     const [fType, fId] = catFilter.split(':');
     source = source.filter(e => e.catType === fType && e.catId === fId);
@@ -1553,6 +1632,11 @@ document.getElementById('menuBtn').addEventListener('click', () => {
 /* ===== Init ===== */
 
 document.getElementById('expDate').value = todayStr();
+{
+  const now = new Date();
+  document.getElementById('reportFromDate').value = isoDate(new Date(now.getFullYear(), now.getMonth(), 1));
+  document.getElementById('reportToDate').value = isoDate(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+}
 renderAll();
 initCloudSync();
 
