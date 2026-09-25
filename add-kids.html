@@ -115,6 +115,13 @@
           <input type="checkbox" id="qRecurring">
           🔄 הוצאה חוזרת כל חודש
         </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="qInstallment">
+          📆 תשלום בתשלומים
+        </label>
+        <label id="qInstallmentWrap" class="hidden">מספר תשלומים בסה״כ
+          <input type="number" id="qInstallmentCount" min="2" step="1" inputmode="numeric" placeholder="לדוגמה: 12">
+        </label>
         <label>תאריך
           <input type="date" id="qDate">
         </label>
@@ -135,6 +142,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js?v=1"></script>
-<script src="add.js?v=4"></script>
+<script src="add.js?v=5"></script>
 </body>
 </html>

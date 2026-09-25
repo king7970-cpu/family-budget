@@ -168,6 +168,18 @@ function initForm() {
     document.getElementById('qCardLast4Wrap').classList.toggle('hidden', e.target.value !== 'credit');
   });
 
+  // "חוזרת" ו"תשלומים" הן שתי דרכים שונות לחלק הוצאה קדימה — סימון אחת מבטלת את השנייה.
+  document.getElementById('qRecurring').addEventListener('change', (e) => {
+    if (e.target.checked) {
+      document.getElementById('qInstallment').checked = false;
+      document.getElementById('qInstallmentWrap').classList.add('hidden');
+    }
+  });
+  document.getElementById('qInstallment').addEventListener('change', (e) => {
+    document.getElementById('qInstallmentWrap').classList.toggle('hidden', !e.target.checked);
+    if (e.target.checked) document.getElementById('qRecurring').checked = false;
+  });
+
   document.getElementById('qSave').addEventListener('click', saveExpense);
   document.getElementById('qAmount').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') saveExpense();
@@ -210,10 +222,17 @@ async function saveExpense() {
   const paymentMethod = document.getElementById('qPayMethod').value;
   const cardLast4 = paymentMethod === 'credit' ? document.getElementById('qCardLast4').value.trim().slice(-4) : '';
   const isRecurring = document.getElementById('qRecurring').checked;
+  const isInstallment = document.getElementById('qInstallment').checked;
+  const installmentCount = parseInt(document.getElementById('qInstallmentCount').value, 10);
+  if (isInstallment && (!installmentCount || installmentCount < 2)) {
+    flagInvalidCategory(document.getElementById('qInstallmentCount'));
+    return;
+  }
 
   const fresh = data;
   fresh.expenses = fresh.expenses || [];
   fresh.recurringTemplates = fresh.recurringTemplates || [];
+  fresh.installmentTemplates = fresh.installmentTemplates || [];
 
   let recurringId = null;
   if (isRecurring) {
@@ -224,6 +243,17 @@ async function saveExpense() {
   }
   const expense = { id: uid(), date, catType, catId, amount, business, note, paymentMethod, cardLast4 };
   if (recurringId) expense.recurringId = recurringId;
+  if (isInstallment) {
+    const dayOfMonth = new Date(date).getDate() || 1;
+    const template = {
+      id: uid(), catType, catId, amount, business, note, paymentMethod, cardLast4, dayOfMonth,
+      totalInstallments: installmentCount, startMonth: date.slice(0, 7),
+    };
+    fresh.installmentTemplates.push(template);
+    expense.installmentId = template.id;
+    expense.installmentIndex = 1;
+    expense.installmentTotal = installmentCount;
+  }
   fresh.expenses.push(expense);
   saveData(fresh);
   localStorage.setItem(LAST_CAT_KEY, catValue);
@@ -239,6 +269,9 @@ async function saveExpense() {
   document.getElementById('qCardLast4').value = '';
   document.getElementById('qCardLast4Wrap').classList.add('hidden');
   document.getElementById('qRecurring').checked = false;
+  document.getElementById('qInstallment').checked = false;
+  document.getElementById('qInstallmentCount').value = '';
+  document.getElementById('qInstallmentWrap').classList.add('hidden');
 
   showBalanceModal(balance);
 }

@@ -187,6 +187,13 @@
           <input type="checkbox" id="expRecurring">
           🔄 הוצאה חוזרת כל חודש (תיווצר אוטומטית מדי חודש)
         </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="expInstallment">
+          📆 תשלום בתשלומים (יפוצל אוטומטית לחודשים הבאים)
+        </label>
+        <label id="expInstallmentWrap" class="hidden">מספר תשלומים בסה״כ
+          <input type="number" id="expInstallmentCount" min="2" step="1" inputmode="numeric" placeholder="לדוגמה: 12">
+        </label>
         <label>הערה (אופציונלי)
           <input type="text" id="expNote" placeholder="הערה חופשית">
         </label>
@@ -371,6 +378,11 @@
       <div id="recurringList" class="edit-list"></div>
     </div>
     <div class="card">
+      <h2>📆 הוצאות בתשלומים</h2>
+      <p class="muted">רכישות שסימנת כ"תשלומים" — כל תשלום נוצר אוטומטית בחודש שלו עד לסיום המספר שנקבע. לעצירה (ביטול התשלומים שנותרו), מחק אותן מכאן.</p>
+      <div id="installmentList" class="edit-list"></div>
+    </div>
+    <div class="card">
       <h2>הגדרות ונתונים</h2>
       <button class="btn-secondary" id="exportBtn">ייצוא גיבוי (JSON)</button>
       <label class="file-label">
@@ -408,6 +420,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js?v=1"></script>
-<script src="app.js?v=8"></script>
+<script src="app.js?v=9"></script>
 </body>
 </html>

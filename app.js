@@ -216,6 +216,7 @@ function defaultData() {
     expenses: [],
     keywordMap: {}, // "type:id" -> [keyword, keyword, ...] learned from past imports
     recurringTemplates: [], // expenses marked "recurring" — auto-recreated each month
+    installmentTemplates: [], // expenses marked "installments" — auto-recreated each month until the count runs out
   };
 }
 
@@ -227,6 +228,7 @@ function applyMigrations(parsed) {
   if (!parsed.variable) parsed.variable = [];
   if (!parsed.funds) parsed.funds = [];
   if (!parsed.recurringTemplates) parsed.recurringTemplates = [];
+  if (!parsed.installmentTemplates) parsed.installmentTemplates = [];
 
   // one-time migration: make sure "אשראי מתגלגל" exists as a fixed category
   const hasRevolvingCredit = [...parsed.fixed, ...parsed.variable, ...parsed.funds]
@@ -272,6 +274,36 @@ function applyMigrations(parsed) {
         paymentMethod: t.paymentMethod || '', cardLast4: t.cardLast4 || '',
         recurringId: t.id,
       });
+    }
+  });
+
+  // auto-create the next due installment(s) of each installment plan — walks
+  // forward from the plan's start month, filling in any month up to and
+  // including the current one that doesn't have an expense yet, and stops
+  // permanently once totalInstallments payments have been created. This also
+  // backfills correctly if the app wasn't opened for a couple of months.
+  (parsed.installmentTemplates || []).forEach(t => {
+    const existingForT = parsed.expenses.filter(e => e.installmentId === t.id);
+    if (existingForT.length >= t.totalInstallments) return;
+    const coveredMonths = new Set(existingForT.map(e => e.date.slice(0, 7)));
+    const [sy, sm] = (t.startMonth || cmKeyR).split('-').map(Number);
+    let idx = existingForT.length; // 0-based index of the next payment to create
+    while (idx < t.totalInstallments) {
+      const monthDate = new Date(sy, sm - 1 + idx, 1);
+      const mKey = monthKey(monthDate);
+      if (mKey > cmKeyR) break; // future month not reached yet
+      if (!coveredMonths.has(mKey)) {
+        const daysInM = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate();
+        const day = Math.min(t.dayOfMonth || 1, daysInM);
+        const date = `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        parsed.expenses.push({
+          id: uid(), date, catType: t.catType, catId: t.catId, amount: t.amount,
+          business: t.business || '', note: t.note || '',
+          paymentMethod: t.paymentMethod || '', cardLast4: t.cardLast4 || '',
+          installmentId: t.id, installmentIndex: idx + 1, installmentTotal: t.totalInstallments,
+        });
+      }
+      idx++;
     }
   });
 
@@ -419,6 +451,7 @@ function renderAll() {
   renderAnnualView();
   renderBusinessView();
   renderRecurringList();
+  renderInstallmentList();
   document.getElementById('monthTitle').textContent = 'תקציב המשפחה — ' + HEB_MONTHS[new Date().getMonth()];
 }
 
@@ -445,6 +478,40 @@ function renderRecurringList() {
     btn.addEventListener('click', () => {
       if (!confirm('להפסיק את ההוצאה החוזרת הזו? (הוצאות שכבר נוצרו בעבר יישארו)')) return;
       data.recurringTemplates = data.recurringTemplates.filter(t => t.id !== btn.dataset.id);
+      save();
+      renderAll();
+    });
+  });
+}
+
+function renderInstallmentList() {
+  const el = document.getElementById('installmentList');
+  if (!el) return;
+  el.innerHTML = '';
+  const templates = data.installmentTemplates || [];
+  if (templates.length === 0) {
+    el.innerHTML = '<p class="empty-note">אין הוצאות בתשלומים מוגדרות עדיין.</p>';
+    return;
+  }
+  templates.forEach(t => {
+    const catName = findCatName(t.catType, t.catId);
+    const paidCount = data.expenses.filter(e => e.installmentId === t.id).length;
+    const row = document.createElement('div');
+    row.className = 'edit-row';
+    row.style.gridTemplateColumns = '1fr auto';
+    const done = paidCount >= t.totalInstallments;
+    const label = (t.business ? t.business + ' · ' : '') + catName + ' · ' + fmtNum(t.amount) + ' ₪ לתשלום · '
+      + (done ? `הסתיים (${t.totalInstallments}/${t.totalInstallments})` : `תשלום ${paidCount}/${t.totalInstallments}`);
+    row.innerHTML = `
+      <span>${escapeHtml(label)}</span>
+      <button class="remove-btn" data-id="${t.id}">✕</button>
+    `;
+    el.appendChild(row);
+  });
+  el.querySelectorAll('.remove-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!confirm('לבטל את התשלומים שנותרו לרכישה הזו? (תשלומים שכבר נוצרו בעבר יישארו)')) return;
+      data.installmentTemplates = data.installmentTemplates.filter(t => t.id !== btn.dataset.id);
       save();
       renderAll();
     });
@@ -619,11 +686,12 @@ function expenseRowHTML(e) {
   const bizLabel = e.business ? escapeHtml(e.business) : catName;
   const payTag = formatPaymentTag(e);
   const recurringTag = e.recurringId ? ' · 🔄 חוזרת' : '';
+  const installmentTag = e.installmentId ? ` · 📆 תשלום ${e.installmentIndex}/${e.installmentTotal}` : '';
   return `
     <div class="expense-item">
       <div class="expense-main">
         <span class="expense-cat">${bizLabel}</span>
-        <span class="expense-date">${e.date} · ${escapeHtml(catName)}${e.note ? ' · ' + escapeHtml(e.note) : ''}${recurringTag}</span>
+        <span class="expense-date">${e.date} · ${escapeHtml(catName)}${e.note ? ' · ' + escapeHtml(e.note) : ''}${recurringTag}${installmentTag}</span>
         ${payTag ? `<span class="payment-tag">${payTag}</span>` : ''}
       </div>
       <div style="display:flex;align-items:center;gap:8px">
@@ -986,6 +1054,19 @@ document.getElementById('expPayMethod').addEventListener('change', (e) => {
   document.getElementById('expCardLast4Wrap').classList.toggle('hidden', e.target.value !== 'credit');
 });
 
+// "חוזרת" ו"תשלומים" הן שתי דרכים שונות לחלק הוצאה קדימה — לא הגיוני לסמן
+// את שתיהן יחד, אז סימון אחת מבטלת את השנייה.
+document.getElementById('expRecurring').addEventListener('change', (e) => {
+  if (e.target.checked) {
+    document.getElementById('expInstallment').checked = false;
+    document.getElementById('expInstallmentWrap').classList.add('hidden');
+  }
+});
+document.getElementById('expInstallment').addEventListener('change', (e) => {
+  document.getElementById('expInstallmentWrap').classList.toggle('hidden', !e.target.checked);
+  if (e.target.checked) document.getElementById('expRecurring').checked = false;
+});
+
 // Returns { name, remaining, budget, isFund } for a category, so we can show
 // "X ₪ left this month" right after saving an expense against it.
 function computeCategoryBalance(catType, catId) {
@@ -1030,8 +1111,14 @@ document.getElementById('expenseForm').addEventListener('submit', (ev) => {
   const paymentMethod = document.getElementById('expPayMethod').value;
   const cardLast4 = paymentMethod === 'credit' ? document.getElementById('expCardLast4').value.trim().slice(-4) : '';
   const isRecurring = document.getElementById('expRecurring').checked;
+  const isInstallment = document.getElementById('expInstallment').checked;
+  const installmentCount = parseInt(document.getElementById('expInstallmentCount').value, 10);
   if (!resolved) { flagInvalidCategory(catInput); return; }
   if (!amount || amount <= 0) return;
+  if (isInstallment && (!installmentCount || installmentCount < 2)) {
+    flagInvalidCategory(document.getElementById('expInstallmentCount'));
+    return;
+  }
   const [catType, catId] = resolved.split(':');
 
   let recurringId = null;
@@ -1043,6 +1130,17 @@ document.getElementById('expenseForm').addEventListener('submit', (ev) => {
   }
   const expense = { id: uid(), date: dateVal, catType, catId, amount, business, note, paymentMethod, cardLast4 };
   if (recurringId) expense.recurringId = recurringId;
+  if (isInstallment) {
+    const dayOfMonth = new Date(dateVal).getDate() || 1;
+    const template = {
+      id: uid(), catType, catId, amount, business, note, paymentMethod, cardLast4, dayOfMonth,
+      totalInstallments: installmentCount, startMonth: dateVal.slice(0, 7),
+    };
+    data.installmentTemplates.push(template);
+    expense.installmentId = template.id;
+    expense.installmentIndex = 1;
+    expense.installmentTotal = installmentCount;
+  }
   data.expenses.push(expense);
   save();
 
@@ -1055,6 +1153,9 @@ document.getElementById('expenseForm').addEventListener('submit', (ev) => {
   document.getElementById('expCardLast4').value = '';
   document.getElementById('expCardLast4Wrap').classList.add('hidden');
   document.getElementById('expRecurring').checked = false;
+  document.getElementById('expInstallment').checked = false;
+  document.getElementById('expInstallmentCount').value = '';
+  document.getElementById('expInstallmentWrap').classList.add('hidden');
   renderAll();
   renderDetailModalIfOpen();
 
