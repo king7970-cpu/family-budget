@@ -399,8 +399,11 @@ function fundMonthlyShare(fund) { return fund.annualTarget / 12; }
 function fundSaved(fund, currentMonthKey) {
   const months = monthsBetweenInclusive(fund.startMonth || currentMonthKey, currentMonthKey);
   const contributed = months * fundMonthlyShare(fund);
+  // Only count withdrawals through the month being asked about — otherwise
+  // browsing back to a past month would show a later month's withdrawal as
+  // if it had already happened.
   const withdrawn = data.expenses
-    .filter(e => e.catType === 'fund' && e.catId === fund.id)
+    .filter(e => e.catType === 'fund' && e.catId === fund.id && e.date.slice(0, 7) <= currentMonthKey)
     .reduce((s, e) => s + e.amount, 0);
   return contributed - withdrawn;
 }
@@ -436,8 +439,12 @@ function fixedTotal() { return data.fixed.reduce((s, c) => s + c.amount, 0); }
 function variableTotal() { return data.variable.reduce((s, c) => s + c.amount, 0); }
 function fundsMonthlyTotal() { return data.funds.reduce((s, f) => s + fundMonthlyShare(f), 0); }
 
-function categorySpent(catId, catType) {
-  return currentMonthExpenses()
+// monthKeyStr lets callers ask about a specific browsed month; omit it to
+// mean "the real current month" (used right after saving a new expense,
+// where the balance shown should always reflect today, not whatever month
+// happens to be browsed elsewhere in the app).
+function categorySpent(catId, catType, monthKeyStr) {
+  return expensesForMonth(monthKeyStr || monthKey(new Date()))
     .filter(e => e.catType === catType && e.catId === catId)
     .reduce((s, e) => s + e.amount, 0);
 }
@@ -452,7 +459,6 @@ function renderAll() {
   renderBusinessView();
   renderRecurringList();
   renderInstallmentList();
-  document.getElementById('monthTitle').textContent = 'תקציב המשפחה — ' + HEB_MONTHS[new Date().getMonth()];
 }
 
 function renderRecurringList() {
@@ -531,39 +537,65 @@ function renderDashboard() {
   availEl.textContent = fmt(available);
   availEl.style.color = available < 0 ? 'var(--danger)' : '';
 
-  const now = new Date();
-  const dayOfMonth = now.getDate();
-  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  document.getElementById('dayProgressLabel').textContent = `יום ${dayOfMonth} מתוך ${daysInMonth}`;
+  // month-nav: which month's actuals the dashboard below is showing —
+  // shares selectedLogMonth with the expense log, so browsing a month in
+  // one place shows it everywhere.
+  const months = getAvailableMonthKeys();
+  const monthSel = document.getElementById('dashboardMonthSelect');
+  monthSel.innerHTML = months.map(mk =>
+    `<option value="${mk}" ${mk === selectedLogMonth ? 'selected' : ''}>${monthKeyLabel(mk)}</option>`
+  ).join('');
+  document.getElementById('monthTitle').textContent = 'תקציב המשפחה — ' + monthKeyLabel(selectedLogMonth);
 
-  const spentVar = data.variable.reduce((s, c) => s + categorySpent(c.id, 'variable'), 0);
+  const viewedMonth = selectedLogMonth;
+  const isCurrentMonth = viewedMonth === monthKey(new Date());
+  const [vy, vm] = viewedMonth.split('-').map(Number);
+  const daysInMonth = new Date(vy, vm, 0).getDate();
+  const now = new Date();
+  const dayOfMonth = isCurrentMonth ? now.getDate() : daysInMonth; // a past/future month is treated as "fully elapsed" for the totals
+
+  const spentVar = data.variable.reduce((s, c) => s + categorySpent(c.id, 'variable', viewedMonth), 0);
   const remaining = varTotal - spentVar;
   const projected = dayOfMonth > 0 ? (spentVar / dayOfMonth) * daysInMonth : spentVar;
+
+  document.getElementById('dayProgressLabel').textContent = isCurrentMonth
+    ? `יום ${dayOfMonth} מתוך ${daysInMonth}`
+    : (viewedMonth < monthKey(now) ? 'חודש שהסתיים' : 'חודש עתידי');
+  document.getElementById('spentSoFarLabel').textContent = isCurrentMonth ? 'הוצאתי עד היום' : 'סה״כ הוצאתי';
 
   document.getElementById('spentSoFar').textContent = fmtNum(spentVar);
   document.getElementById('remainingNow').textContent = fmtNum(remaining);
   document.getElementById('remainingNow').style.color = remaining < 0 ? 'var(--danger)' : '';
-  document.getElementById('projectedEnd').textContent = fmtNum(projected);
-  document.getElementById('projectedEnd').style.color = projected > varTotal ? 'var(--danger)' : 'var(--good)';
+
+  // "תחזית לסוף החודש" (end-of-month projection) only makes sense while the
+  // month is still in progress — a past month already has its final total,
+  // and a future month has nothing to project from yet.
+  const projectedBox = document.getElementById('projectedEndBox');
+  const paceNote = document.getElementById('paceNote');
+  projectedBox.classList.toggle('hidden', !isCurrentMonth);
+  if (isCurrentMonth) {
+    document.getElementById('projectedEnd').textContent = fmtNum(projected);
+    document.getElementById('projectedEnd').style.color = projected > varTotal ? 'var(--danger)' : 'var(--good)';
+    if (varTotal > 0) {
+      const diff = varTotal - projected;
+      if (diff < 0) {
+        paceNote.textContent = `בקצב ההוצאה הנוכחי, צפויה חריגה של כ-${fmtNum(Math.abs(diff))} ₪ עד סוף החודש.`;
+        paceNote.style.color = 'var(--danger)';
+      } else {
+        paceNote.textContent = `בקצב הנוכחי, צפוי שיוותרו כ-${fmtNum(diff)} ₪ בסוף החודש.`;
+        paceNote.style.color = 'var(--good)';
+      }
+    } else {
+      paceNote.textContent = '';
+    }
+  } else {
+    paceNote.textContent = '';
+  }
 
   const pct = varTotal > 0 ? (spentVar / varTotal) * 100 : 0;
   const bar = document.getElementById('monthProgressBar');
   bar.style.width = Math.min(100, pct) + '%';
   bar.className = 'progress-inner' + (pct > 100 ? ' over' : pct > 85 ? ' warn' : '');
-
-  const paceNote = document.getElementById('paceNote');
-  if (varTotal > 0) {
-    const diff = varTotal - projected;
-    if (diff < 0) {
-      paceNote.textContent = `בקצב ההוצאה הנוכחי, צפויה חריגה של כ-${fmtNum(Math.abs(diff))} ₪ עד סוף החודש.`;
-      paceNote.style.color = 'var(--danger)';
-    } else {
-      paceNote.textContent = `בקצב הנוכחי, צפוי שיוותרו כ-${fmtNum(diff)} ₪ בסוף החודש.`;
-      paceNote.style.color = 'var(--good)';
-    }
-  } else {
-    paceNote.textContent = '';
-  }
 
   // category breakdown
   const list = document.getElementById('categoryList');
@@ -572,7 +604,7 @@ function renderDashboard() {
     list.innerHTML = '<p class="empty-note">אין קטגוריות משתנות. הוסף בלשונית "תקציב".</p>';
   }
   data.variable.forEach(c => {
-    const spent = categorySpent(c.id, 'variable');
+    const spent = categorySpent(c.id, 'variable', viewedMonth);
     const p = c.amount > 0 ? (spent / c.amount) * 100 : 0;
     const row = document.createElement('div');
     row.className = 'cat-row clickable';
@@ -587,15 +619,16 @@ function renderDashboard() {
     list.appendChild(row);
   });
 
-  // funds quick list
-  const cmKey = monthKey(new Date());
+  // funds quick list — "saved" is accrued from the fund's start month through
+  // whatever month is being viewed, so browsing to a past month shows how
+  // much had accumulated by then.
   const fList = document.getElementById('fundsList');
   fList.innerHTML = '';
   if (data.funds.length === 0) {
     fList.innerHTML = '<p class="empty-note">אין קרנות שנתיות. הוסף בלשונית "תקציב".</p>';
   }
   data.funds.forEach(f => {
-    const saved = fundSaved(f, cmKey);
+    const saved = fundSaved(f, viewedMonth);
     const p = f.annualTarget > 0 ? (saved / f.annualTarget) * 100 : 0;
     const row = document.createElement('div');
     row.className = 'cat-row fund-row clickable';
@@ -610,6 +643,19 @@ function renderDashboard() {
     fList.appendChild(row);
   });
 }
+
+document.getElementById('dashboardMonthSelect').addEventListener('change', (e) => {
+  selectedLogMonth = e.target.value;
+  renderAll();
+});
+document.getElementById('dashPrevMonthBtn').addEventListener('click', () => {
+  selectedLogMonth = shiftMonth(selectedLogMonth, -1);
+  renderAll();
+});
+document.getElementById('dashNextMonthBtn').addEventListener('click', () => {
+  selectedLogMonth = shiftMonth(selectedLogMonth, 1);
+  renderAll();
+});
 
 function escapeHtml(s) {
   const d = document.createElement('div');
@@ -853,10 +899,16 @@ function renderDetailModalContent() {
 
   let expenses, title, summaryText, pct, over;
 
+  // Opened from the dashboard, so it always reflects whatever month the
+  // dashboard is currently browsing (selectedLogMonth), not necessarily today.
+  const viewedMonth = selectedLogMonth;
+  const isCurrentMonth = viewedMonth === monthKey(new Date());
+  const monthSuffix = isCurrentMonth ? 'החודש' : monthKeyLabel(viewedMonth);
+
   if (currentDetailModal.mode === 'all') {
-    expenses = currentMonthExpenses().slice();
+    expenses = expensesForMonth(viewedMonth).slice();
     const total = expenses.reduce((s, e) => s + e.amount, 0);
-    title = '📋 כל ההוצאות החודש';
+    title = isCurrentMonth ? '📋 כל ההוצאות החודש' : '📋 כל ההוצאות — ' + monthKeyLabel(viewedMonth);
     summaryText = `${expenses.length} הוצאות · סה"כ ${fmt(total)}`;
     bar.parentElement.style.display = 'none';
     pct = 0; over = false;
@@ -867,7 +919,7 @@ function renderDetailModalContent() {
       const fund = data.funds.find(f => f.id === catId);
       if (!fund) { closeDetailModal(); return; }
       expenses = data.expenses.filter(e => e.catType === 'fund' && e.catId === catId).slice();
-      const saved = fundSaved(fund, monthKey(new Date()));
+      const saved = fundSaved(fund, viewedMonth);
       title = '📅 ' + name;
       summaryText = `נצבר: ${fmt(saved)} מתוך יעד שנתי ${fmt(fund.annualTarget)}`;
       pct = fund.annualTarget > 0 ? ((fund.annualTarget - saved) / fund.annualTarget) * 100 : 0;
@@ -877,10 +929,10 @@ function renderDetailModalContent() {
       const list = catType === 'fixed' ? data.fixed : data.variable;
       const cat = list.find(c => c.id === catId);
       if (!cat) { closeDetailModal(); return; }
-      expenses = currentMonthExpenses().filter(e => e.catType === catType && e.catId === catId);
-      const spent = categorySpent(catId, catType);
+      expenses = expensesForMonth(viewedMonth).filter(e => e.catType === catType && e.catId === catId);
+      const spent = categorySpent(catId, catType, viewedMonth);
       title = name;
-      summaryText = `${fmtNum(spent)} / ${fmtNum(cat.amount)} ₪ החודש`;
+      summaryText = `${fmtNum(spent)} / ${fmtNum(cat.amount)} ₪ ${monthSuffix}`;
       pct = cat.amount > 0 ? (spent / cat.amount) * 100 : 0;
       over = spent > cat.amount;
       bar.parentElement.style.display = '';

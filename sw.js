@@ -1,6 +1,6 @@
-const CACHE_NAME = 'family-budget-v18';
+const CACHE_NAME = 'family-budget-v19';
 const ASSETS = [
-  './', './index.html', './style.css?v=4', './app.js?v=9', './manifest.json', './icon.svg', './vendor/xlsx.full.min.js',
+  './', './index.html', './style.css?v=4', './app.js?v=10', './manifest.json', './icon.svg', './vendor/xlsx.full.min.js',
   './add.html', './add.js?v=5', './add-manifest.json',
   './add-kids.html', './add-kids-manifest.json',
   './firebase-config.js?v=1',
