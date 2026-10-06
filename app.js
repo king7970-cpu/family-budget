@@ -307,7 +307,44 @@ function applyMigrations(parsed) {
     }
   });
 
+  // auto-record each fixed (קבועה) category once a month, dated the 1st, at its
+  // set amount — so recurring bills (tuition, pension, etc.) show as paid without
+  // being re-entered. Skipped if this month already has an expense for that
+  // category (manual or auto), so nothing gets counted twice.
+  parsed.fixed.forEach(c => {
+    if (!(c.amount > 0)) return;
+    const alreadyThisMonth = parsed.expenses.some(e => e.catType === 'fixed' && e.catId === c.id && e.date.slice(0, 7) === cmKeyR);
+    if (alreadyThisMonth) return;
+    parsed.expenses.push({
+      id: uid(), date: `${cmKeyR}-01`, catType: 'fixed', catId: c.id, amount: c.amount,
+      business: '', note: 'קבוע אוטומטי', paymentMethod: '', cardLast4: '', fixedAuto: true,
+    });
+  });
+
   return parsed;
+}
+
+// Moves a category between the fixed (קבועות) and variable (משתנות) lists.
+// Keeps its id, so all existing expenses/templates follow it — they're re-typed,
+// never deleted or orphaned.
+function moveCategoryType(id, fromType) {
+  const toType = fromType === 'fixed' ? 'variable' : 'fixed';
+  const fromList = fromType === 'fixed' ? data.fixed : data.variable;
+  const toList = toType === 'fixed' ? data.fixed : data.variable;
+  const idx = fromList.findIndex(c => c.id === id);
+  if (idx < 0) return;
+  const [cat] = fromList.splice(idx, 1);
+  toList.push(cat);
+  data.expenses.forEach(e => { if (e.catType === fromType && e.catId === id) e.catType = toType; });
+  (data.recurringTemplates || []).forEach(t => { if (t.catType === fromType && t.catId === id) t.catType = toType; });
+  (data.installmentTemplates || []).forEach(t => { if (t.catType === fromType && t.catId === id) t.catType = toType; });
+  const oldKey = fromType + ':' + id, newKey = toType + ':' + id;
+  if (data.keywordMap[oldKey]) {
+    data.keywordMap[newKey] = (data.keywordMap[newKey] || []).concat(data.keywordMap[oldKey]);
+    delete data.keywordMap[oldKey];
+  }
+  save();
+  renderAll();
 }
 
 // Local-only load: never touches the cloud. Used for the very first instant
@@ -619,6 +656,30 @@ function renderDashboard() {
     list.appendChild(row);
   });
 
+  // fixed (קבועות) list — each one is auto-recorded once a month, so this shows
+  // whether it's been paid for the viewed month, and how much.
+  const fixedList = document.getElementById('fixedList');
+  fixedList.innerHTML = '';
+  if (data.fixed.length === 0) {
+    fixedList.innerHTML = '<p class="empty-note">אין הוצאות קבועות. הוסף בלשונית "תקציב".</p>';
+  }
+  data.fixed.forEach(c => {
+    const paid = categorySpent(c.id, 'fixed', viewedMonth);
+    const p = c.amount > 0 ? (paid / c.amount) * 100 : 0;
+    const row = document.createElement('div');
+    row.className = 'cat-row clickable';
+    const status = c.amount <= 0 ? '' : (paid >= c.amount ? ' ✅' : ' ⏳');
+    row.innerHTML = `
+      <div class="cat-top">
+        <span class="cat-name">${escapeHtml(c.name)}${status}</span>
+        <span class="cat-nums ${paid > c.amount ? 'deficit' : ''}">${fmtNum(paid)} / ${fmtNum(c.amount)} ₪</span>
+      </div>
+      <div class="cat-bar-outer"><div class="cat-bar-inner ${p > 100 ? 'over' : ''}" style="width:${Math.min(100, p)}%"></div>
+    `;
+    row.addEventListener('click', () => openCategoryDetailModal('fixed', c.id));
+    fixedList.appendChild(row);
+  });
+
   // funds quick list — "saved" is accrued from the fund's start month through
   // whatever month is being viewed, so browsing to a past month shows how
   // much had accumulated by then.
@@ -733,11 +794,12 @@ function expenseRowHTML(e) {
   const payTag = formatPaymentTag(e);
   const recurringTag = e.recurringId ? ' · 🔄 חוזרת' : '';
   const installmentTag = e.installmentId ? ` · 📆 תשלום ${e.installmentIndex}/${e.installmentTotal}` : '';
+  const fixedAutoTag = e.fixedAuto ? ' · 📌 קבוע אוטומטי' : '';
   return `
     <div class="expense-item">
       <div class="expense-main">
         <span class="expense-cat">${bizLabel}</span>
-        <span class="expense-date">${e.date} · ${escapeHtml(catName)}${e.note ? ' · ' + escapeHtml(e.note) : ''}${recurringTag}${installmentTag}</span>
+        <span class="expense-date">${e.date} · ${escapeHtml(catName)}${e.note ? ' · ' + escapeHtml(e.note) : ''}${recurringTag}${installmentTag}${fixedAutoTag}</span>
         ${payTag ? `<span class="payment-tag">${payTag}</span>` : ''}
       </div>
       <div style="display:flex;align-items:center;gap:8px">
@@ -1573,7 +1635,7 @@ function renderEditList(containerId, arr, isFund) {
     row.innerHTML = `
       <input type="text" value="${escapeHtml(item.name)}" data-field="name" data-id="${item.id}">
       <input type="number" value="${item.amount}" data-field="amount" data-id="${item.id}">
-      <button class="remove-btn" data-id="${item.id}">✕</button>
+      <span class="edit-row-actions">${isFund ? '' : `<button class="move-btn" data-id="${item.id}" title="העבר בין קבועות למשתנות">⇄</button>`}<button class="remove-btn" data-id="${item.id}">✕</button></span>
     `;
     el.appendChild(row);
   });
@@ -1602,6 +1664,18 @@ function renderEditList(containerId, arr, isFund) {
       renderAll();
     });
   });
+  if (!isFund) {
+    el.querySelectorAll('.move-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const item = arr.find(x => x.id === btn.dataset.id);
+        if (!item) return;
+        const fromType = arr === data.fixed ? 'fixed' : 'variable';
+        const toLabel = fromType === 'fixed' ? 'משתנות' : 'קבועות';
+        if (!confirm(`להעביר את "${item.name}" לרשימת ${toLabel}? כל ההוצאות שנרשמו תחתיה יעברו איתה.`)) return;
+        moveCategoryType(item.id, fromType);
+      });
+    });
+  }
 }
 
 function renderFundEditList() {

@@ -467,6 +467,15 @@ button {
 }
 .edit-row input[type="text"] { min-width: 0; }
 .edit-row input[type="number"] { min-width: 0; }
+.edit-row-actions { display: flex; align-items: center; }
+.move-btn {
+  background: none;
+  border: none;
+  color: var(--primary);
+  font-size: 1.1rem;
+  padding: 4px 6px;
+  cursor: pointer;
+}
 .remove-btn {
   background: none;
   border: none;
